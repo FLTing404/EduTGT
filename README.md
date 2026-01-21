@@ -1,20 +1,42 @@
-# OULAD 数据集转换与 ContraTGT 运行指南
+# EduTGT: OULAD 数据集转换与 ContraTGT 运行指南
 
-本指南说明如何将 OULAD 教育日志数据转换为 ContraTGT 格式，并在 ContraTGT 框架中运行。
+本项目将 OULAD（Open University Learning Analytics Dataset）教育日志数据转换为 ContraTGT 格式，用于时间图上的链接预测任务。
+
+## 项目结构
+
+- `convert_oulad.py` - OULAD 数据转换脚本
+- `ContraTGT/` - ContraTGT 框架（Git 子模块）
+- `OULAD-main/` - OULAD 原始数据和处理脚本
+- `README.md` - 本文件
+
+## 快速开始
+
+### 1. 克隆仓库（包含子模块）
+
+```bash
+git clone --recurse-submodules https://github.com/FLTing404/EduTGT.git
+cd EduTGT
+```
+
+如果已经克隆了仓库，需要初始化子模块：
+
+```bash
+git submodule update --init --recursive
+```
 
 ## 目录结构
 
-确保您的项目目录结构如下：
+项目目录结构如下：
 
 ```
-code/
+EduTGT/
 ├── convert_oulad.py          # 数据转换脚本
 ├── OULAD-main/
 │   └── data/                 # OULAD 原始数据目录
 │       ├── studentVle.csv
 │       ├── studentInfo.csv
 │       └── courses.csv
-├── ContraTGT/                # ContraTGT 框架目录
+├── ContraTGT/                # ContraTGT 框架（Git 子模块）
 │   ├── data/                 # 转换后的边数据将保存在此
 │   ├── node_feature/         # 节点特征文件将保存在此
 │   ├── main.py
@@ -199,8 +221,23 @@ id,u,i,ts,label,idx
 3. **数据量**: 如果 OULAD 数据集很大，可能需要调整批次大小和采样参数
 4. **GPU**: 确保有可用的 GPU（默认使用 GPU 0），可通过 `--gpu` 参数指定
 
+## 注意事项
+
+### Git 子模块
+
+本项目使用 `ContraTGT` 作为 Git 子模块。如果克隆仓库后 `ContraTGT` 目录为空，请运行：
+
+```bash
+git submodule update --init --recursive
+```
+
+### 大文件处理
+
+由于 `data/ml_oulad.csv` 文件较大（超过 100MB），已添加到 `.gitignore` 中。用户需要自行运行 `convert_oulad.py` 生成该文件。
+
 ## 参考
 
-- ContraTGT 原始 README: `ContraTGT/README.md`
+- ContraTGT 原始仓库: https://github.com/Jaff-hi/ContraTGT
+- OULAD 数据集: https://analyse.kmi.open.ac.uk/open_dataset
 - 数据转换脚本: `convert_oulad.py`
 
