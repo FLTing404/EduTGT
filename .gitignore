@@ -1,0 +1,60 @@
+# 大文件（超过 GitHub 限制）
+data/ml_oulad.csv
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# 模型和检查点文件
+*.pth
+*.pt
+*.ckpt
+*.h5
+*.pkl
+*.model
+
+# 数据文件（大文件）
+*.csv
+!OULAD-main/data/*.csv
+!OULAD-main/pipeline/*.csv
+
+# 日志文件
+*.log
+
+# 临时文件
+*.tmp
+*.temp
+.DS_Store
+Thumbs.db
+
