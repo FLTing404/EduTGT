@@ -58,3 +58,6 @@ wheels/
 .DS_Store
 Thumbs.db
 
+# 参考用（不纳入版本控制）
+ContraTGT/
+

@@ -1,243 +1,179 @@
-# EduTGT: OULAD 数据集转换与 ContraTGT 运行指南
+# 基于 ContraTGT 的教育学数据预测
 
-本项目将 OULAD（Open University Learning Analytics Dataset）教育日志数据转换为 ContraTGT 格式，用于时间图上的链接预测任务。
+本项目在 **ContraTGT**（时序图对比学习）基础上，面向 **OULAD** 教育学数据做学生–课程链接预测（如是否通过）。**主代码位于 `code/script/`**，包含预训练、微调与增强表导出；根目录下提供数据转换脚本与 LSTM/XGBoost 基线。所有命令均在 **`code`** 目录下执行。
 
-## 项目结构
+---
 
-- `convert_oulad.py` - OULAD 数据转换脚本
-- `ContraTGT/` - ContraTGT 框架（Git 子模块）
-- `OULAD-main/` - OULAD 原始数据和处理脚本
-- `README.md` - 本文件
+## 如何使用（快速上手）
 
-## 快速开始
+1. **进入目录**：`cd code`
+2. **准备并转换数据**：将 OULAD 原始 CSV 放到 `OULAD-main/data/`，然后运行  
+   `python convert_oulad_abc.py --sample_ratio 0.1`（或 `convert_oulad.py`），得到 `all_data/data_abc_0.1/` 等。
+3. **跑主模型（script，需 GPU）**：
+   - 一键：`python script/run_enhance.py --data_dir data_abc_0.1 --gpu 0`  
+   - 或分步：`python script/pretrain.py --data_dir data_abc_0.1 --gpu 0` → `python script/main.py --data_dir data_abc_0.1 --gpu 0`  
+   - 增强表输出在 `process_data/<data_dir>_enhanced/`。
+4. **跑基线（可选）**：`python models/train_lstm.py --data_dir data_abc_0.1`、`python models/train_xgboost.py --data_dir data_abc_0.1`，结果在 `result/`。
 
-### 1. 克隆仓库（包含子模块）
+更多参数见下文；各脚本支持 `--help`。
+
+---
+
+## 一、目录结构
+
+```
+code/
+├── README.md                   # 本说明
+├── script/                     # 【主代码】基于 ContraTGT 的图模型
+│   ├── pretrain.py            # 对比学习预训练
+│   ├── main.py                # 有监督链接预测微调与评估
+│   ├── run_enhance.py         # 一键微调 + 导出 embedding 增强表
+│   ├── model.py               # SpatialTemporal 双塔 Transformer
+│   ├── graph_transformer.py   # Transformer 编码器
+│   ├── utils.py               # 参数、路径、Dataset、早停等
+│   └── sampling.py            # 时空邻居与序列采样
+├── convert_oulad.py            # 数据转换：全量/按比例采样
+├── convert_oulad_abc.py        # 数据转换：按模块筛选（如 AAA,BBB,CCC）
+├── OULAD-main/data/            # 原始 OULAD CSV
+├── all_data/                   # 转换后的图数据（按 data_dir 分子目录）
+├── pretrain_model/             # 预训练权重（script 输出）
+├── saved_checkpoints/          # 微调最佳权重（script 输出）
+├── process_data/               # 增强表（run_enhance 输出）
+├── models/                     # 基线：LSTM、XGBoost
+└── result/                     # 基线结果 CSV
+```
+
+---
+
+## 二、主代码（script/）
+
+基于 **ContraTGT** 的时序图表示学习：在 OULAD 学生–课程交互边上做**对比学习预训练** → **链接预测微调** → 可选 **embedding 拼表** 得到增强数据。数据从 **`all_data/<data_dir>/`** 读取（`ml_oulad.csv` + `oulad.content`），通过 **`--data_dir`** 指定目录名。
+
+### 2.1 pretrain.py（对比学习预训练）
+
+- 在时序边上做对比学习，为微调提供初始化。
+- 输出：`pretrain_model/<data_dir>.pth`，早停时也会写入 `saved_checkpoints/<data_dir>.pth`。
+
+### 2.2 main.py（有监督微调 + 评估）
+
+- 加载预训练权重，BCE 链接预测微调，按验证集 AP 早停（max_round=8）。
+- 最佳模型：`saved_checkpoints/<data_dir>.pth`；在 test / nn_test 上评估 AP、AUC。
+
+### 2.3 run_enhance.py（一键微调 + 导出 / 仅导出）
+
+- **一键模式**：pretrain → main → 用最佳 checkpoint 按时间顺序生成 (u,i) embedding，拼成 [h_u ‖ h_i] 写入 `process_data/<data_dir>_enhanced/`。
+- **仅导出**（`--skip_finetune`）：不训练，直接加载已有 checkpoint 生成增强表。
+
+### 2.4 常用命令（在 code 目录下）
 
 ```bash
-git clone --recurse-submodules https://github.com/FLTing404/EduTGT.git
-cd EduTGT
+cd code
+# 一键微调并导出增强表
+python script/run_enhance.py --data_dir data_abc_0.01 --gpu 0
+# 分步
+python script/pretrain.py --data_dir data_abc_0.01 --gpu 0
+python script/main.py --data_dir data_abc_0.01 --gpu 0
+# 仅导出（需已有 saved_checkpoints）
+python script/run_enhance.py --data_dir data_abc_0.01 --skip_finetune --gpu 0
 ```
 
-如果已经克隆了仓库，需要初始化子模块：
+数据根目录非 `code/all_data` 时可加 `--all_data_root <路径>`。
+
+---
+
+## 三、数据转换（OULAD → 四文件格式）
+
+### 前置条件
+
+- 原始 OULAD 数据放在 **`code/OULAD-main/data/`**，需包含：
+  - `studentVle.csv`、`studentInfo.csv`、`courses.csv`、`assessments.csv`
+  - `studentAssessment.csv`、`studentRegistration.csv`、`vle.csv`
+
+### 3.1 convert_oulad.py（全量或按比例采样）
+
+| 参数 | 类型 | 默认 | 说明 |
+|------|------|------|------|
+| `--sample_ratio` | float | 1.0 | 边数据采样比例 (0.0–1.0) |
+| `--max_edges` | int | None | 最大边数上限（可选） |
+
+- 输出目录：`sample_ratio=1.0` → **`all_data/data_1/`**；`0.1` → **`all_data/data_0.1/`**；其它 → **`all_data/data_<sample_ratio>/`**
 
 ```bash
-git submodule update --init --recursive
-```
-
-## 目录结构
-
-项目目录结构如下：
-
-```
-EduTGT/
-├── convert_oulad.py          # 数据转换脚本
-├── OULAD-main/
-│   └── data/                 # OULAD 原始数据目录
-│       ├── studentVle.csv
-│       ├── studentInfo.csv
-│       └── courses.csv
-├── ContraTGT/                # ContraTGT 框架（Git 子模块）
-│   ├── data/                 # 转换后的边数据将保存在此
-│   ├── node_feature/         # 节点特征文件将保存在此
-│   ├── main.py
-│   ├── pretrain.py
-│   └── utils.py
-└── data/                     # 转换后的边数据输出目录
-```
-
-## 步骤 1: 数据转换
-
-### 1.1 准备原始数据
-
-确保 `OULAD-main/data/` 目录下包含以下文件：
-- `studentVle.csv` - 学生与虚拟学习环境交互数据
-- `studentInfo.csv` - 学生信息数据
-- `courses.csv` - 课程信息数据
-
-### 1.2 运行转换脚本
-
-在项目根目录下运行：
-
-```bash
+cd code
 python convert_oulad.py
+python convert_oulad.py --sample_ratio 0.1
+python convert_oulad.py --sample_ratio 0.1 --max_edges 500000
 ```
 
-### 1.3 转换输出
+### 3.2 convert_oulad_abc.py（按模块筛选）
 
-转换脚本会生成两个文件：
+仅保留指定模块（如 AAA、BBB、CCC），数据量更小，适合快速实验。
 
-1. **边数据文件**: `data/ml_oulad.csv`
-   - 格式：`id,u,i,ts,label,idx`
-   - `u`: 学生节点ID（从1开始）
-   - `i`: 课程节点ID（从1开始）
-   - `ts`: 时间戳（整数，从1开始）
-   - `label`: 边标签（1=通过，-1=失败/退学）
-   - `idx`: 边索引
+| 参数 | 类型 | 默认 | 说明 |
+|------|------|------|------|
+| `--modules` | str | AAA,BBB,CCC | 保留的模块，逗号分隔 |
+| `--sample_ratio` | float | 1.0 | 边数据采样比例 (0.0–1.0) |
+| `--max_edges` | int | None | 最大边数上限（可选） |
 
-2. **节点特征文件**: `ContraTGT/node_feature/oulad.content`
-   - 每行代表一个节点的特征向量（逗号分隔）
-   - 特征包括：学生特征（年龄、教育背景、学分等）和课程特征（点击量、活跃学生数、课程长度等）
-
-### 1.4 验证转换结果
-
-转换完成后，脚本会输出数据统计信息：
-- 学生节点数
-- 课程节点数
-- 总边数
-- 特征维度
-- 正负样本分布
-
-## 步骤 2: 在 ContraTGT 中运行
-
-### 2.1 确认数据集已注册
-
-检查 `ContraTGT/utils.py` 文件，确保 `'oulad'` 已在数据集选择列表中：
-
-```python
-parser.add_argument('-d', '--data', type=str, help='data sources to use',
-                    choices=['socialevolve_1m', 'wiki', 'slashdot', 'bitcoinotc','ubuntu','oulad'],
-                    default='slashdot')
-```
-
-**注意**: 如果 `convert_oulad.py` 脚本已更新，`'oulad'` 应该已经包含在列表中。
-
-### 2.2 预训练模型
-
-进入 `ContraTGT` 目录并运行预训练：
+- 输出目录：`sample_ratio=1.0` → **`all_data/data_abc_1/`**；`0.1` → **`all_data/data_abc_0.1/`**；其它 → **`all_data/data_abc_<sample_ratio>/`**
 
 ```bash
-cd ContraTGT
-python pretrain.py -d oulad --bs 800 --ctx_sample 30 --tmp_sample 21 --seed 60
+cd code
+python convert_oulad_abc.py
+python convert_oulad_abc.py --sample_ratio 0.1
+python convert_oulad_abc.py --modules AAA,BBB --sample_ratio 0.5
 ```
 
-**参数说明**:
-- `-d oulad`: 指定数据集为 oulad
-- `--bs 800`: 批次大小
-- `--ctx_sample 30`: 空间采样数量
-- `--tmp_sample 21`: 时间采样数量
-- `--seed 60`: 随机种子
+### 3.3 每个输出目录下的四个文件
 
-预训练模型将保存到 `ContraTGT/pretrain_model/oulad.pth`
+| 文件 | 说明 |
+|------|------|
+| **ml_oulad.csv** | 边表：id, u, i, ts, label, idx（图模型主表） |
+| **oulad.content** | 节点特征矩阵，行号对应节点 ID |
+| **ml_oulad_edge_feature.csv** | 边特征，与边表行对齐 |
+| **ml_oulad_pairs.csv** | 学生–课程对聚合表 |
 
-### 2.3 训练模型
+**script/** 仅使用 **ml_oulad.csv** 和 **oulad.content**；后两个供边特征或下游表格模型使用。
 
-运行主训练脚本：
+---
+
+## 四、基线模型（models/）
+
+从 **`code/all_data/<data_dir>/`** 或 **`code/process_data/<data_dir>/`**（如增强数据 `data_abc_0.01_enhanced`）读取；通过 **`--data_dir`** 指定。目录内需包含 `ml_oulad.csv` 和 `oulad.content`。可用 **`--list_data`** 列出当前可用数据目录。
+
+### 4.1 train_lstm.py（序列 LSTM）
+
+- 按学生–课程对将边表转为时间序列，LSTM 编码后二分类（是否通过）。
+- 输出：**`code/result/lstm_results_<data_dir>.csv`**（或通过 `--output_dir` 指定）。
+
+常用参数示例：`--data_dir`、`--test_size`/`--val_size`、`--sample_ratio`、`--max_seq_len`、`--hidden_dim`、`--num_epochs`、`--device`。
 
 ```bash
-python main.py -d oulad --bs 800 --ctx_sample 40 --tmp_sample 31 --seed 60
+cd code
+python models/train_lstm.py --data_dir data_0.1
+python models/train_lstm.py --data_dir data_abc_0.01_enhanced --max_seq_len 30 --num_epochs 30
+python models/train_lstm.py --list_data
 ```
 
-**参数说明**:
-- `-d oulad`: 指定数据集为 oulad
-- `--bs 800`: 批次大小
-- `--ctx_sample 40`: 空间采样数量
-- `--tmp_sample 31`: 时间采样数量
-- `--seed 60`: 随机种子
+### 4.2 train_xgboost.py（边级 XGBoost）
 
-训练好的模型将保存到 `ContraTGT/saved_models/oulad.pth`
-
-### 2.4 调整参数（可选）
-
-如果数据量很大或遇到内存问题，可以调整以下参数：
-
-- **减小批次大小**: `--bs 400` 或 `--bs 200`
-- **减小采样数量**: `--ctx_sample 20 --tmp_sample 15`
-- **调整学习率**: `--lr 3e-4`（对于大数据集可能需要更小的学习率）
-
-## 完整运行示例
+- 每条边一个样本，特征为学生特征 + 课程特征 + 时间戳 + 统计特征；按 (u,i) 划分 train/val/test 避免泄露。
+- 输出：**`code/result/xgboost_results_<data_dir>.csv`**。
 
 ```bash
-# 1. 转换数据
-python convert_oulad.py
-
-# 2. 进入 ContraTGT 目录
-cd ContraTGT
-
-# 3. 预训练
-python pretrain.py -d oulad --bs 800 --ctx_sample 30 --tmp_sample 21 --seed 60
-
-# 4. 训练
-python main.py -d oulad --bs 800 --ctx_sample 40 --tmp_sample 31 --seed 60
+cd code
+python models/train_xgboost.py --data_dir data_0.1
+python models/train_xgboost.py --data_dir data_abc_0.01_enhanced
+python models/train_xgboost.py --list_data
 ```
 
-## 数据格式说明
+---
 
-### 边数据格式 (ml_oulad.csv)
+## 五、整体流程建议
 
-```csv
-id,u,i,ts,label,idx
-1,1,1001,1,1,1
-2,1,1001,5,1,2
-3,2,1002,10,-1,3
-...
-```
+1. **准备数据**：将 OULAD 原始 CSV 放入 `OULAD-main/data/`。
+2. **转换**：运行 `convert_oulad.py` 或 `convert_oulad_abc.py`，得到 `all_data/data_*` 或 `all_data/data_abc_*`。
+3. **主模型（script）**：对某个 `data_dir` 运行 `script/run_enhance.py` 一键完成预训练、微调与增强表导出，或分步执行 `script/pretrain.py` → `script/main.py`。
+4. **基线对比（可选）**：用 `models/train_lstm.py`、`models/train_xgboost.py` 在同一或增强数据上跑实验，结果在 `result/`，可与主模型评估对比。
 
-- 所有节点索引从 **1** 开始（0 保留用于填充）
-- 时间戳为整数，从 **1** 开始
-- 标签：`1` = 通过，`-1` = 失败/退学
-
-### 节点特征格式 (oulad.content)
-
-每行是一个节点的特征向量，用逗号分隔：
-
-```
-0.0,1.0,0.0,0.5,1.0,0.0,0.0,0.0,1,0
-0.0,0.0,1.0,0.3,0.0,2.5,1.2,30.0,0,1
-...
-```
-
-特征包括：
-- 学生特征：年龄组（one-hot，3维）、教育背景（one-hot，5维）、学分（归一化，1维）、残疾标识（1维）
-- 占位符/统计量：3维（学生用占位符，课程用统计量）
-- 节点类型标识：`[is_student, is_course]`（2维）
-- 填充维度：1维（确保总维度16能被4整除，满足多头注意力要求）
-
-**总特征维度：16**（3+5+1+1+3+2+1=16）
-
-## 常见问题
-
-### Q: 转换脚本报错找不到数据目录
-**A**: 确保 `OULAD-main/data/` 目录存在，且包含所需的 CSV 文件。
-
-### Q: 预训练或训练时内存不足
-**A**: 尝试减小批次大小（`--bs`）和采样数量（`--ctx_sample`, `--tmp_sample`）。
-
-### Q: 模型性能不佳
-**A**: 可以尝试：
-- 调整学习率（`--lr`）
-- 增加训练轮数（`--n_epoch`）
-- 调整 dropout 率（`--drop_out`）
-
-### Q: 预训练时出现 AssertionError
-**A**: 这通常是因为特征维度不能被多头注意力的头数（4）整除。转换脚本已自动处理此问题，通过添加填充维度使特征维度为16（能被4整除）。如果仍遇到此问题，请重新运行 `convert_oulad.py` 生成新的特征文件。
-
-### Q: 如何查看训练进度
-**A**: 训练过程中会输出每个 epoch 的损失、准确率、AP 和 AUC 指标。
-
-## 注意事项
-
-1. **节点索引**: 所有节点索引必须从 1 开始，0 保留用于填充操作
-2. **时间戳**: 建议将时间戳离散化为整数以便索引
-3. **数据量**: 如果 OULAD 数据集很大，可能需要调整批次大小和采样参数
-4. **GPU**: 确保有可用的 GPU（默认使用 GPU 0），可通过 `--gpu` 参数指定
-
-## 注意事项
-
-### Git 子模块
-
-本项目使用 `ContraTGT` 作为 Git 子模块。如果克隆仓库后 `ContraTGT` 目录为空，请运行：
-
-```bash
-git submodule update --init --recursive
-```
-
-### 大文件处理
-
-由于 `data/ml_oulad.csv` 文件较大（超过 100MB），已添加到 `.gitignore` 中。用户需要自行运行 `convert_oulad.py` 生成该文件。
-
-## 参考
-
-- ContraTGT 原始仓库: https://github.com/Jaff-hi/ContraTGT
-- OULAD 数据集: https://analyse.kmi.open.ac.uk/open_dataset
-- 数据转换脚本: `convert_oulad.py`
-
+更多参数见各脚本 `--help`。
