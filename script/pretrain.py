@@ -26,7 +26,7 @@ edges_file, feature_file, data_name = get_data_paths(args)
 edges, num_nodes, nodes_list, node_time,train_data,_,_,_,_ = Dataset(file=edges_file)
 adj_list = get_adj_list(edges)
 node_l, ts_l, idx_l, offset_l = init_offset(adj_list)
-interaction_list = get_interaction_list(edges)
+interaction_list, idx_list_sorted = get_interaction_list(edges)
 
 
 features = pd.read_csv(feature_file, header=None)
@@ -142,7 +142,7 @@ for epoch in tqdm(range(n_epoch)):
             # temporal layer
             
             tmp_src_node, tmp_src_mask, tmp_src_ts = get_unique_node_sequence(batch_data, edges, tmp_sample,
-                                                                              interaction_list, flag=True)
+                                                                              interaction_list, flag=True, idx_list_sorted=idx_list_sorted)
             tmp_src_fea = np.empty((node_sum, tmp_sample, indim))  
             for idx, i in enumerate(tmp_src_node):
                 for idj, j in enumerate(i):
@@ -155,7 +155,7 @@ for epoch in tqdm(range(n_epoch)):
 
             
             tmp_dst_node, tmp_dst_mask, tmp_dst_ts = get_unique_node_sequence(batch_data, edges, tmp_sample,
-                                                                              interaction_list, flag=False)
+                                                                              interaction_list, flag=False, idx_list_sorted=idx_list_sorted)
             tmp_dst_fea = np.empty((node_sum, tmp_sample, indim))  
             for idx, i in enumerate(tmp_dst_node):
                 for idj, j in enumerate(i):
@@ -168,7 +168,7 @@ for epoch in tqdm(range(n_epoch)):
 
             
             tmp_node_1, tmp_mask_1, tmp_ts_1 = get_unique_node_sequence(batch_data, edges, (tmp_sample - 1) * 2 + 1,
-                                                                        interaction_list, flag=True)
+                                                                        interaction_list, flag=True, idx_list_sorted=idx_list_sorted)
 
             tmp_fea_1 = np.empty((node_sum, (tmp_sample - 1) * 2 + 1, indim))  
             for idx, i in enumerate(tmp_node_1):
@@ -199,7 +199,7 @@ for epoch in tqdm(range(n_epoch)):
             fake_batch_data = copy.deepcopy(batch_data)
             fake_batch_data['idx'][:, 1] = torch.tensor(fake_node)
             fake_tmp_seq, fake_tmp_mask, fake_tmp_ts = get_unique_node_sequence(fake_batch_data, edges, tmp_sample,
-                                                                                interaction_list, flag=False)
+                                                                                interaction_list, flag=False, idx_list_sorted=idx_list_sorted)
             fake_tmp_fea = np.empty((node_sum, tmp_sample, indim))  
             for idx, i in enumerate(fake_tmp_seq):
                 for idj, j in enumerate(i):
@@ -281,7 +281,7 @@ for epoch in tqdm(range(n_epoch)):
 
             # temporal view
             tmp_node, tmp_mask, tmp_ts = get_unique_node_sequence(batch_data, edges, (tmp_sample - 1) * 2 + 1,
-                                                                  interaction_list, flag=True)
+                                                                  interaction_list, flag=True, idx_list_sorted=idx_list_sorted)
 
             tmp_fea = np.empty((node_sum, (tmp_sample - 1) * 2 + 1, indim))  
             for idx, i in enumerate(tmp_node):
@@ -316,7 +316,7 @@ for epoch in tqdm(range(n_epoch)):
             con_src_mask = torch.LongTensor(con_src_mask).to(device)
             # temporal view
             temp_src_node, temp_src_mask, temp_src_ts = get_unique_node_sequence(batch_data, edges, tmp_sample,
-                                                                                 interaction_list, flag=True)
+                                                                                 interaction_list, flag=True, idx_list_sorted=idx_list_sorted)
             temp_src_fea = np.empty((node_sum, tmp_sample, indim))  
             for idx, i in enumerate(temp_src_node):
                 for idj, j in enumerate(i):
@@ -346,7 +346,7 @@ for epoch in tqdm(range(n_epoch)):
             fake_batch_data = copy.deepcopy(batch_data)
             fake_batch_data['idx'][:, 1] = torch.tensor(fake_node)
             fake_temp_seq, fake_temp_mask, fake_temp_ts = get_unique_node_sequence(fake_batch_data, edges, tmp_sample,
-                                                                                   interaction_list, flag=False)
+                                                                                   interaction_list, flag=False, idx_list_sorted=idx_list_sorted)
             fake_temp_fea = np.empty((node_sum, tmp_sample, indim)) 
             for idx, i in enumerate(fake_temp_seq):
                 for idj, j in enumerate(i):

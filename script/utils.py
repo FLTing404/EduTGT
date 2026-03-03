@@ -6,6 +6,7 @@ import random
 import argparse
 import sys
 import scipy.sparse as sp
+from sklearn.model_selection import train_test_split
 
 
 def get_args():
@@ -34,7 +35,8 @@ def get_args():
                         help='(currently not suggested due to overwhelming memory consumption) cache temporal neighbors previously calculated to speed up repeated lookup')
     parser.add_argument('--gpu', type=int, default=0, help='which gpu to use')
     parser.add_argument('--aug_len', type=float, default=1.5, help='augmentation seq lenqth')
-
+    parser.add_argument('--split_by_ui', action='store_true',
+                        help='按 (u,i) 划分 train/val/test，与基线一致；默认按时间划分')
 
     try:
         args = parser.parse_args()
@@ -116,7 +118,7 @@ class Namespace(object):
         self.__dict__.update(adict)
 
 
-def Dataset(file='data/ml_slashdot.csv', starting_line=1):
+def Dataset(file='data/ml_slashdot.csv', starting_line=1, split_by_ui=False, val_ratio=0.1, test_ratio=0.2, random_state=42):
     ecols = Namespace({'id': 0,
                        'FromNodeId': 1,
                        'ToNodeId': 2,
@@ -157,12 +159,36 @@ def Dataset(file='data/ml_slashdot.csv', starting_line=1):
 
     edge = {'idx': idx, 'labels': labels}
 
-    
-    val_time, test_time = list(np.quantile(edge['idx'][:, 2], [0.10, 0.20]))
-    #     print(val_time,test_time)
-    valid_train_flag = (edge['idx'][:, 2] <= val_time)
-    valid_val_flag = (edge['idx'][:, 2] > val_time) * (edge['idx'][:, 2] <= test_time)
-    valid_test_flag = (edge['idx'][:, 2] > test_time)
+    if split_by_ui:
+        # 按 (u,i) 划分：与基线一致，训练集上可看到每个 (u,i) 的完整时间边
+        ui = np.array(edge['idx'][:, [0, 1]])
+        lab = np.array(edge['labels'])
+        ui_to_label = {}
+        for i in range(len(ui)):
+            key = (int(ui[i, 0]), int(ui[i, 1]))
+            if key not in ui_to_label:
+                ui_to_label[key] = int(lab[i])
+        unique_ui = np.array(list(ui_to_label.keys()))
+        y_ui = np.array([ui_to_label[tuple(k)] for k in unique_ui])
+        ui_train, ui_temp, y_train, y_temp = train_test_split(
+            unique_ui, y_ui, test_size=val_ratio + test_ratio, random_state=random_state, stratify=y_ui)
+        val_size_adjusted = val_ratio / (val_ratio + test_ratio)
+        ui_val, ui_test, y_val, y_test = train_test_split(
+            ui_temp, y_temp, test_size=1 - val_size_adjusted, random_state=random_state, stratify=y_temp)
+        train_ui_set = set(map(tuple, ui_train))
+        val_ui_set = set(map(tuple, ui_val))
+        test_ui_set = set(map(tuple, ui_test))
+        valid_train_flag = np.array([(int(edge['idx'][i, 0]), int(edge['idx'][i, 1])) in train_ui_set for i in range(edge['idx'].size(0))])
+        valid_val_flag = np.array([(int(edge['idx'][i, 0]), int(edge['idx'][i, 1])) in val_ui_set for i in range(edge['idx'].size(0))])
+        valid_test_flag = np.array([(int(edge['idx'][i, 0]), int(edge['idx'][i, 1])) in test_ui_set for i in range(edge['idx'].size(0))])
+        valid_train_flag = torch.from_numpy(valid_train_flag)
+        valid_val_flag = torch.from_numpy(valid_val_flag)
+        valid_test_flag = torch.from_numpy(valid_test_flag)
+    else:
+        val_time, test_time = list(np.quantile(edge['idx'][:, 2].numpy(), [0.10, 0.20]))
+        valid_train_flag = (edge['idx'][:, 2] <= val_time)
+        valid_val_flag = ((edge['idx'][:, 2] > val_time) & (edge['idx'][:, 2] <= test_time))
+        valid_test_flag = (edge['idx'][:, 2] > test_time)
 
     train_edge = edge['idx'][valid_train_flag]
     train_label = edge['labels'][valid_train_flag]
@@ -183,8 +209,9 @@ def Dataset(file='data/ml_slashdot.csv', starting_line=1):
                                  zip(np.array(edge['idx'][:, 0]), np.array(edge['idx'][:, 1]))])
     #     print(is_new_node_edge)
 
-    nn_val_flag = valid_val_flag * is_new_node_edge
-    nn_test_flag = valid_test_flag * is_new_node_edge
+    _mask = torch.from_numpy(is_new_node_edge).to(device=edge['idx'].device)
+    nn_val_flag = ((valid_val_flag.bool() if valid_val_flag.dtype != torch.bool else valid_val_flag) & _mask)
+    nn_test_flag = ((valid_test_flag.bool() if valid_test_flag.dtype != torch.bool else valid_test_flag) & _mask)
 
     nn_test_edge = edge['idx'][nn_test_flag]
     nn_test_label = edge['labels'][nn_test_flag]

@@ -52,22 +52,19 @@ class LSTMModel(nn.Module):
         self.relu = nn.ReLU()
         self.dropout = nn.Dropout(dropout)
         self.fc2 = nn.Linear(64, 1)
-        self.sigmoid = nn.Sigmoid()
     
     def forward(self, x):
         # x shape: (batch_size, seq_len, input_dim)
         lstm_out, (h_n, c_n) = self.lstm(x)
         
         # 使用最后一个时间步的输出
-        # lstm_out shape: (batch_size, seq_len, hidden_dim)
         last_output = lstm_out[:, -1, :]  # (batch_size, hidden_dim)
         
-        # 全连接层
+        # 全连接层，输出 logits（与 BCEWithLogitsLoss 配套，不在模型里做 sigmoid）
         out = self.fc1(last_output)
         out = self.relu(out)
         out = self.dropout(out)
         out = self.fc2(out)
-        out = self.sigmoid(out)
         
         return out
 
@@ -218,7 +215,7 @@ def evaluate(model, dataloader, criterion, device):
             loss = criterion(outputs, labels)
             
             total_loss += loss.item()
-            all_preds.extend(outputs.cpu().numpy())
+            all_preds.extend(torch.sigmoid(outputs).cpu().numpy())
             all_labels.extend(labels.cpu().numpy())
     
     avg_loss = total_loss / len(dataloader)
