@@ -15,6 +15,8 @@ def get_args():
     parser.add_argument('-d', '--data', type=str, help='data sources to use, try wikipedia or reddit',
                         choices=['socialevolve_1m', 'wiki', 'slashdot', 'bitcoinotc','ubuntu','oulad'],
                         default='slashdot')
+    parser.add_argument('--data_dir', type=str, default=None,
+                        help='指定 code/data/all_data 下子目录名，如 data_0.1，将使用该目录下 ml_oulad.csv 与 oulad.content；指定后忽略 -d/--data 的数据路径')
 
     # general training hyper-parameters
     parser.add_argument('--ctx_sample', type=int, default=40, help='spatial sampling')
@@ -33,11 +35,6 @@ def get_args():
     parser.add_argument('--gpu', type=int, default=0, help='which gpu to use')
     parser.add_argument('--aug_len', type=float, default=1.5, help='augmentation seq lenqth')
 
-    # paths (for run_enhance / all_data)
-    parser.add_argument('--data_dir', type=str, default=None,
-                        help='data directory name under all_data/ (e.g. data_0.1); when set, csv/content paths use all_data_root/data_dir/')
-    parser.add_argument('--all_data_root', type=str, default=None,
-                        help='root of all_data; default: code/all_data')
 
     try:
         args = parser.parse_args()
@@ -47,33 +44,35 @@ def get_args():
     return args, sys.argv
 
 
-def get_code_dir():
-    """Return code directory (parent of script directory)."""
-    return os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-
-
 def get_data_paths(args):
     """
-    Resolve (csv_path, content_path, data_name).
-    When args.data_dir is set: read from all_data_root/data_dir/ml_oulad.csv and oulad.content, data_name = data_dir.
-    Otherwise: use data/ and node_feature/ under script dir, data_name = args.data.
+    根据 args.data 或 args.data_dir 解析边数据文件、节点特征文件与 data_name。
+    - 若指定 --data_dir（如 data_0.1）：使用 code/data/all_data/data_0.1/ml_oulad.csv 与 oulad.content，
+      假定在 code 目录下运行，data_name 为目录名（如 data_0.1）。
+    - 否则使用 data/ml_{data}.csv 与 node_feature/{data}.content。
+    返回 (edges_file, feature_file, data_name)。
     """
-    script_dir = os.path.dirname(os.path.abspath(__file__))
-    code_dir = get_code_dir()
-    if getattr(args, 'data_dir', None):
-        data_name = args.data_dir
-        all_data_root = getattr(args, 'all_data_root', None) or os.path.join(code_dir, 'all_data')
-        csv_path = os.path.join(all_data_root, args.data_dir, 'ml_oulad.csv')
-        content_path = os.path.join(all_data_root, args.data_dir, 'oulad.content')
-        return csv_path, content_path, data_name
+    if getattr(args, 'data_dir', None) and args.data_dir.strip():
+        cwd = os.getcwd()
+        d = args.data_dir.strip()
+        if os.path.isabs(d):
+            data_dir = d
+        elif os.path.dirname(d):
+            data_dir = os.path.join(cwd, d)
+        else:
+            data_dir = os.path.join(cwd, 'data', 'all_data', d)
+        edges_file = os.path.join(data_dir, 'ml_oulad.csv')
+        feature_file = os.path.join(data_dir, 'oulad.content')
+        data_name = os.path.basename(os.path.normpath(data_dir))
+        return edges_file, feature_file, data_name
     data_name = args.data
-    csv_path = os.path.join(script_dir, 'data', 'ml_{}.csv'.format(data_name))
-    content_path = os.path.join(script_dir, 'node_feature', '{}.content'.format(data_name))
-    return csv_path, content_path, data_name
+    edges_file = f'data/ml_{data_name}.csv'
+    feature_file = f'node_feature/{data_name}.content'
+    return edges_file, feature_file, data_name
 
 
 class EarlyStopping:
-    def __init__(self, dn, max_round=3, higher_better=True, tolerance=1e-10):
+    def __init__(self, dn, max_round=3, higher_better=True, tolerance=1e-10, checkpoint_dir=None):
         self.max_round = max_round
         self.num_round = 0
 
@@ -83,7 +82,10 @@ class EarlyStopping:
         self.last_best = None
         self.higher_better = higher_better
         self.tolerance = tolerance
-        self.path = f'saved_checkpoints/{dn}.pth'
+        if checkpoint_dir:
+            self.path = os.path.join(checkpoint_dir, f'{dn}.pth')
+        else:
+            self.path = f'saved_checkpoints/{dn}.pth'
 
     def __call__(self, curr_val, model):
         if not self.higher_better:
@@ -181,9 +183,8 @@ def Dataset(file='data/ml_slashdot.csv', starting_line=1):
                                  zip(np.array(edge['idx'][:, 0]), np.array(edge['idx'][:, 1]))])
     #     print(is_new_node_edge)
 
-    # 使用 torch.bool 索引，避免 PyTorch 的 uint8 弃用警告
-    nn_val_flag = torch.tensor((np.asarray(valid_val_flag) * is_new_node_edge).astype(bool), dtype=torch.bool)
-    nn_test_flag = torch.tensor((np.asarray(valid_test_flag) * is_new_node_edge).astype(bool), dtype=torch.bool)
+    nn_val_flag = valid_val_flag * is_new_node_edge
+    nn_test_flag = valid_test_flag * is_new_node_edge
 
     nn_test_edge = edge['idx'][nn_test_flag]
     nn_test_label = edge['labels'][nn_test_flag]

@@ -227,45 +227,24 @@ def train_xgboost(X_train, y_train, X_val, y_val, X_test, y_test,
     return model, results
 
 def get_data_dir_path(code_root, data_dir):
-    """将 data_dir 解析为实际路径：支持 all_data/<name>、process_data/<name>、process_data/<base>/<name>（如 data_0.1_train）。"""
-    process_data_dir = os.path.join(code_root, 'process_data')
-    if os.path.exists(process_data_dir):
-        for base in os.listdir(process_data_dir):
-            candidate = os.path.join(process_data_dir, base, data_dir)
-            if os.path.isdir(candidate) and os.path.exists(os.path.join(candidate, 'ml_oulad.csv')):
-                return candidate
-    cand = os.path.join(process_data_dir, data_dir)
-    if os.path.exists(cand) and os.path.exists(os.path.join(cand, 'ml_oulad.csv')):
-        return cand
-    cand = os.path.join(code_root, 'all_data', data_dir)
-    if os.path.exists(cand):
+    """仅从 code/data/all_data 解析数据目录。"""
+    all_data_dir = os.path.join(code_root, 'data', 'all_data')
+    cand = os.path.join(all_data_dir, data_dir)
+    if os.path.isdir(cand) and os.path.exists(os.path.join(cand, 'ml_oulad.csv')):
         return cand
     return None
 
 def list_available_data(script_dir):
-    """列出所有可用的数据文件夹（all_data 一级 + process_data 一级 + process_data/<base>/ 下子目录）。"""
+    """列出 code/data/all_data 下所有可用的数据文件夹。"""
     code_root = os.path.dirname(script_dir)
-    all_data_dir = os.path.join(code_root, 'all_data')
-    process_data_dir = os.path.join(code_root, 'process_data')
+    all_data_dir = os.path.join(code_root, 'data', 'all_data')
     available_dirs = []
     if os.path.exists(all_data_dir):
         for item in os.listdir(all_data_dir):
             item_path = os.path.join(all_data_dir, item)
             if os.path.isdir(item_path) and os.path.exists(os.path.join(item_path, 'ml_oulad.csv')):
                 available_dirs.append(item)
-    if os.path.exists(process_data_dir):
-        for base in os.listdir(process_data_dir):
-            base_path = os.path.join(process_data_dir, base)
-            if not os.path.isdir(base_path):
-                continue
-            for sub in os.listdir(base_path):
-                sub_path = os.path.join(base_path, sub)
-                if os.path.isdir(sub_path) and os.path.exists(os.path.join(sub_path, 'ml_oulad.csv')):
-                    available_dirs.append(sub)
-            if os.path.exists(os.path.join(base_path, 'ml_oulad.csv')):
-                if base not in available_dirs:
-                    available_dirs.append(base)
-    return sorted(set(available_dirs))
+    return sorted(available_dirs)
 
 def main():
     parser = argparse.ArgumentParser(description='XGBoost训练脚本')
@@ -296,7 +275,7 @@ def main():
     # 如果请求列出可用数据，则列出并退出
     if args.list_data:
         print("="*50)
-        print("可用的数据文件夹 (all_data/ 与 process_data/):")
+        print("可用的数据文件夹 (code/data/all_data/):")
         print("="*50)
         available_dirs = list_available_data(script_dir)
         code_root = os.path.dirname(script_dir)
@@ -304,7 +283,7 @@ def main():
             for i, data_dir in enumerate(available_dirs, 1):
                 data_path = get_data_dir_path(code_root, data_dir)
                 if data_path is None:
-                    data_path = os.path.join(code_root, 'all_data', data_dir)
+                    data_path = os.path.join(code_root, 'data', 'all_data', data_dir)
                 edges_file = os.path.join(data_path, 'ml_oulad.csv')
                 if os.path.exists(edges_file):
                     edges_df = pd.read_csv(edges_file)
@@ -322,7 +301,7 @@ def main():
     if args.data_dir:
         data_dir_path = get_data_dir_path(code_root, args.data_dir)
         if data_dir_path is None:
-            data_dir_path = os.path.join(code_root, 'all_data', args.data_dir)
+            data_dir_path = os.path.join(code_root, 'data', 'all_data', args.data_dir)
         data_path = os.path.join(data_dir_path, 'ml_oulad.csv')
         feature_path = os.path.join(data_dir_path, 'oulad.content')
     else:
@@ -339,11 +318,11 @@ def main():
     
     print("="*50)
     print("XGBoost 训练脚本 - OULAD 数据集")
-    # 输出目录与结果文件名：指定了 data_dir 时结果文件名带 data_dir，默认输出到 code/result/
+    # 输出目录与结果文件名：指定了 data_dir 时输出到 result/data_dir/，如 result/data_0.1/xgboost_results_data_0.1.csv
     if args.data_dir:
         args.results_filename = f'xgboost_results_{args.data_dir}.csv'
         if args.output_dir is None:
-            args.output_dir = os.path.join(code_root, 'result')
+            args.output_dir = os.path.join(code_root, 'result', args.data_dir)
     else:
         args.results_filename = 'xgboost_results.csv'
     if args.output_dir is None:

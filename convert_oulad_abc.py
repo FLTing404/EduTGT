@@ -69,14 +69,15 @@ def main():
         return
     
     script_dir = os.path.dirname(os.path.abspath(__file__))
-    oulad_data_dir = os.path.join(script_dir, 'OULAD-main', 'data')
-    
-    # 输出目录: data_abc_{sample_ratio}
+    # 源码文件夹: code/data/OULAD-main，CSV 在 OULAD-main/data 下
+    oulad_data_dir = os.path.join(script_dir, 'data', 'OULAD-main', 'data')
+
+    # 转换结果输出到 code/data/all_data
     if args.sample_ratio == 1.0:
         sample_ratio_str = '1'
     else:
         sample_ratio_str = str(args.sample_ratio)
-    output_dir = os.path.join(script_dir, 'all_data', f'data_abc_{sample_ratio_str}')
+    output_dir = os.path.join(script_dir, 'data', 'all_data', f'data_abc_{sample_ratio_str}')
     node_feature_dir = output_dir
     
     if not os.path.exists(oulad_data_dir):

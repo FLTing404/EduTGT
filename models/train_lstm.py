@@ -86,93 +86,84 @@ def load_node_features(feature_path):
     print(f"节点特征形状: {features.shape}")
     return features
 
+def _get_embedding_columns(edges_df):
+    """若边表为增强版（含 emb_u_* / emb_i_*），返回 (emb_u 列列表, emb_i 列列表)，否则 (None, None)。"""
+    emb_u_cols = sorted([c for c in edges_df.columns if c.startswith('emb_u_')],
+                        key=lambda x: int(x.replace('emb_u_', '')))
+    emb_i_cols = sorted([c for c in edges_df.columns if c.startswith('emb_i_')],
+                        key=lambda x: int(x.replace('emb_i_', '')))
+    if emb_u_cols and emb_i_cols:
+        return emb_u_cols, emb_i_cols
+    return None, None
+
+
 def build_sequences(edges_df, node_features, max_seq_len=50, min_seq_len=1):
     """
     构建时间序列数据
-    为每个学生-课程对构建历史交互序列
-    
-    参数:
-        edges_df: 边数据DataFrame
-        node_features: 节点特征矩阵
-        max_seq_len: 最大序列长度
-        min_seq_len: 最小序列长度（过滤太短的序列）
-    
-    返回:
-        sequences: 序列列表，每个序列是 (seq_len, feature_dim) 的数组
-        labels: 标签列表
+    为每个学生-课程对构建历史交互序列。
+    若边表为增强版（含 emb_u_* / emb_i_*），每个时间步会拼接该边的 embedding。
     """
     print("正在构建时间序列...")
-    
-    # 按学生-课程对分组，并按时间戳排序
+    emb_u_cols, emb_i_cols = _get_embedding_columns(edges_df)
+    if emb_u_cols is not None:
+        print(f"检测到增强表：每个时间步拼接 emb_u ({len(emb_u_cols)} 维) + emb_i ({len(emb_i_cols)} 维)")
+
     sequences = []
     labels = []
-    
-    # 统计信息
     skipped_short = 0
     skipped_invalid = 0
-    
+
+    max_ts = edges_df['ts'].max()
+    min_ts = edges_df['ts'].min()
+
     groups = list(edges_df.groupby(['u', 'i']))
     for (u, i), group in tqdm(groups, desc="构建序列"):
-        # 按时间戳排序
         group = group.sort_values('ts').reset_index(drop=True)
-        
-        # 获取标签（应该都相同，取第一个）
         label = group['label'].iloc[0]
-        
-        # 转换为0-based索引
         u_idx = int(u) - 1
         i_idx = int(i) - 1
-        
-        # 检查节点ID是否有效
+
         if u_idx < 0 or u_idx >= len(node_features) or i_idx < 0 or i_idx >= len(node_features):
             skipped_invalid += 1
             continue
-        
-        # 构建序列：每条边使用 [学生特征, 课程特征, 时间戳] 作为特征
+
         seq = []
         for _, row in group.iterrows():
             ts = row['ts']
             student_feat = node_features[u_idx]
             course_feat = node_features[i_idx]
-            
-            # 组合特征：学生特征 + 课程特征 + 时间戳归一化
-            # 时间戳归一化到[0,1]
-            max_ts = edges_df['ts'].max()
-            min_ts = edges_df['ts'].min()
             ts_norm = (ts - min_ts) / (max_ts - min_ts + 1e-8)
-            
-            feature_vec = np.concatenate([
-                student_feat,  # 16维
-                course_feat,   # 16维
-                [ts_norm]      # 1维
-            ])
+
+            # 基础特征：节点特征 + 时间戳
+            parts = [student_feat, course_feat, [ts_norm]]
+            # 增强表：该时间步（该条边）的图 embedding
+            if emb_u_cols is not None:
+                emb_u = np.array([row[c] for c in emb_u_cols], dtype=np.float32)
+                emb_i = np.array([row[c] for c in emb_i_cols], dtype=np.float32)
+                parts = [student_feat, course_feat, emb_u, emb_i, [ts_norm]]
+
+            feature_vec = np.concatenate(parts)
             seq.append(feature_vec)
-        
-        # 过滤太短的序列
+
         if len(seq) < min_seq_len:
             skipped_short += 1
             continue
-        
-        # 截断或填充序列到固定长度
+
         if len(seq) > max_seq_len:
-            # 保留最后max_seq_len个时间步
             seq = seq[-max_seq_len:]
         else:
-            # 用零向量填充到max_seq_len
             padding = np.zeros((max_seq_len - len(seq), seq[0].shape[0]))
             seq = padding.tolist() + seq
-        
+
         sequences.append(np.array(seq))
-        
-        # 将标签从 -1/1 转换为 0/1
         labels.append(1 if label == 1 else 0)
-    
+
     print(f"构建了 {len(sequences)} 个序列")
     print(f"跳过的序列: 太短={skipped_short}, 无效节点={skipped_invalid}")
     print(f"序列长度: {max_seq_len}")
     print(f"特征维度: {sequences[0].shape[1] if len(sequences) > 0 else 0}")
     print(f"标签分布: 正样本={np.sum(labels)}, 负样本={len(labels)-np.sum(labels)}")
-    
+
     return sequences, labels
 
 def train_epoch(model, dataloader, criterion, optimizer, device):
@@ -381,45 +372,24 @@ def train_lstm(X_train, y_train, X_val, y_val, X_test, y_test,
     return model, results
 
 def get_data_dir_path(code_root, data_dir):
-    """将 data_dir 解析为实际路径：支持 all_data/<name>、process_data/<name>、process_data/<base>/<name>（如 data_0.1_train）。"""
-    process_data_dir = os.path.join(code_root, 'process_data')
-    if os.path.exists(process_data_dir):
-        for base in os.listdir(process_data_dir):
-            candidate = os.path.join(process_data_dir, base, data_dir)
-            if os.path.isdir(candidate) and os.path.exists(os.path.join(candidate, 'ml_oulad.csv')):
-                return candidate
-    cand = os.path.join(process_data_dir, data_dir)
-    if os.path.exists(cand) and os.path.exists(os.path.join(cand, 'ml_oulad.csv')):
-        return cand
-    cand = os.path.join(code_root, 'all_data', data_dir)
-    if os.path.exists(cand):
+    """仅从 code/data/all_data 解析数据目录。"""
+    all_data_dir = os.path.join(code_root, 'data', 'all_data')
+    cand = os.path.join(all_data_dir, data_dir)
+    if os.path.isdir(cand) and os.path.exists(os.path.join(cand, 'ml_oulad.csv')):
         return cand
     return None
 
 def list_available_data(script_dir):
-    """列出所有可用的数据文件夹（all_data 一级 + process_data 一级 + process_data/<base>/ 下子目录）。"""
+    """列出 code/data/all_data 下所有可用的数据文件夹。"""
     code_root = os.path.dirname(script_dir)
-    all_data_dir = os.path.join(code_root, 'all_data')
-    process_data_dir = os.path.join(code_root, 'process_data')
+    all_data_dir = os.path.join(code_root, 'data', 'all_data')
     available_dirs = []
     if os.path.exists(all_data_dir):
         for item in os.listdir(all_data_dir):
             item_path = os.path.join(all_data_dir, item)
             if os.path.isdir(item_path) and os.path.exists(os.path.join(item_path, 'ml_oulad.csv')):
                 available_dirs.append(item)
-    if os.path.exists(process_data_dir):
-        for base in os.listdir(process_data_dir):
-            base_path = os.path.join(process_data_dir, base)
-            if not os.path.isdir(base_path):
-                continue
-            for sub in os.listdir(base_path):
-                sub_path = os.path.join(base_path, sub)
-                if os.path.isdir(sub_path) and os.path.exists(os.path.join(sub_path, 'ml_oulad.csv')):
-                    available_dirs.append(sub)
-            if os.path.exists(os.path.join(base_path, 'ml_oulad.csv')):
-                if base not in available_dirs:
-                    available_dirs.append(base)
-    return sorted(set(available_dirs))
+    return sorted(available_dirs)
 
 def main():
     parser = argparse.ArgumentParser(description='LSTM训练脚本')
@@ -468,14 +438,14 @@ def main():
     # 如果请求列出可用数据，则列出并退出
     if args.list_data:
         print("="*50)
-        print("可用的数据文件夹 (all_data/ 与 process_data/):")
+        print("可用的数据文件夹 (code/data/all_data/):")
         print("="*50)
         available_dirs = list_available_data(script_dir)
         if available_dirs:
             for i, data_dir in enumerate(available_dirs, 1):
                 data_path = get_data_dir_path(code_root, data_dir)
                 if data_path is None:
-                    data_path = os.path.join(code_root, 'all_data', data_dir)
+                    data_path = os.path.join(code_root, 'data', 'all_data', data_dir)
                 edges_file = os.path.join(data_path, 'ml_oulad.csv')
                 if os.path.exists(edges_file):
                     edges_df = pd.read_csv(edges_file)
@@ -492,7 +462,7 @@ def main():
     if args.data_dir:
         data_dir_path = get_data_dir_path(code_root, args.data_dir)
         if data_dir_path is None:
-            data_dir_path = os.path.join(code_root, 'all_data', args.data_dir)
+            data_dir_path = os.path.join(code_root, 'data', 'all_data', args.data_dir)
         data_path = os.path.join(data_dir_path, 'ml_oulad.csv')
         feature_path = os.path.join(data_dir_path, 'oulad.content')
     else:
@@ -511,12 +481,12 @@ def main():
         print("CUDA不可用，使用CPU")
         args.device = 'cpu'
     
-    # 输出目录与结果文件名：指定了 data_dir 时结果文件名带 data_dir，默认输出到 code/result/
+    # 输出目录与结果文件名：指定了 data_dir 时输出到 result/data_dir/，如 result/data_0.1/lstm_results_data_0.1.csv
     if args.data_dir:
         args.results_filename = f'lstm_results_{args.data_dir}.csv'
         args.model_filename = f'lstm_model_{args.data_dir}.pth'
         if args.output_dir is None:
-            args.output_dir = os.path.join(code_root, 'result')
+            args.output_dir = os.path.join(code_root, 'result', args.data_dir)
     else:
         args.results_filename = 'lstm_results.csv'
         args.model_filename = 'lstm_model.pth'

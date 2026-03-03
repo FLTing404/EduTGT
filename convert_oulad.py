@@ -837,16 +837,15 @@ def main():
     args = parser.parse_args()
     
     script_dir = os.path.dirname(os.path.abspath(__file__))
-    oulad_data_dir = os.path.join(script_dir, 'OULAD-main', 'data')
-    
-    # 统一使用 all_data/data_{sample_ratio} 格式
-    # 例如 sample_ratio=0.1 -> data_0.1, sample_ratio=1.0 -> data_1.0
-    # 如果 sample_ratio 是 1.0，则简化为 data_1
+    # 源码文件夹: code/data/OULAD-main，CSV 在 OULAD-main/data 下
+    oulad_data_dir = os.path.join(script_dir, 'data', 'OULAD-main', 'data')
+
+    # 转换结果输出到 code/data/all_data
     if args.sample_ratio == 1.0:
         sample_ratio_str = '1'
     else:
         sample_ratio_str = str(args.sample_ratio)
-    output_dir = os.path.join(script_dir, 'all_data', f'data_{sample_ratio_str}')
+    output_dir = os.path.join(script_dir, 'data', 'all_data', f'data_{sample_ratio_str}')
     node_feature_dir = output_dir  # 节点特征文件也放在同一个文件夹里
     
     if not os.path.exists(oulad_data_dir):

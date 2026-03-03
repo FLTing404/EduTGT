@@ -12,7 +12,9 @@ import random
 import os
 
 args, sys_argv = get_args()
-csv_path, content_path, data_name = get_data_paths(args)
+
+# 脚本所在目录：过程性文件统一放在 code/script 下
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 
 GPU = args.gpu
 DATA = args.data
@@ -20,13 +22,14 @@ LEARNING_RATE = args.lr
 
 device = torch.device('cuda:{}'.format(GPU))
 
-edges, num_nodes, nodes_list, node_time,train_data,test_data,val_data,nn_test_data,nn_val_data = Dataset(file=csv_path)
+edges_file, feature_file, data_name = get_data_paths(args)
+edges, num_nodes, nodes_list, node_time,train_data,test_data,val_data,nn_test_data,nn_val_data = Dataset(file=edges_file)
 adj_list = get_adj_list(edges)
 node_l, ts_l, idx_l, offset_l = init_offset(adj_list)
 interaction_list = get_interaction_list(edges)
 
 
-features = pd.read_csv(content_path, header=None)
+features = pd.read_csv(feature_file, header=None)
 features = normalize_features(features)
 features = torch.tensor(features)
 fea_dim = features.shape[1]
@@ -44,7 +47,7 @@ num_instance = len(train_data['idx'])
 num_batch = math.ceil(num_instance / BATCH_SIZE)
 ctx_sample = args.ctx_sample
 tmp_sample = args.tmp_sample
-pretrain_path = f'pretrain_model/{data_name}.pth'
+pretrain_path = os.path.join(SCRIPT_DIR, 'pretrain_model', f'{data_name}.pth')
 
 train_rand_sampler = RandEdgeSampler(train_data['idx'][:,1])
 val_rand_sampler = RandEdgeSampler(edges['idx'][:,1])
@@ -56,11 +59,11 @@ st_model = st_model.to(device)
 st_optimizer = optim.Adam(st_model.parameters(),lr=LEARNING_RATE, weight_decay=1e-5)
 st_criterion = torch.nn.BCELoss()
 st_criterion_eval = torch.nn.BCELoss()
-early_stopping = EarlyStopping(dn = data_name, max_round=8)
-MODEL_SAVE_PATH = f'saved_models/{data_name}.pth'
-# 创建必要的目录
-os.makedirs('saved_models', exist_ok=True)
-os.makedirs('saved_checkpoints', exist_ok=True)
+early_stopping = EarlyStopping(dn=data_name, max_round=8, checkpoint_dir=os.path.join(SCRIPT_DIR, 'saved_checkpoints'))
+MODEL_SAVE_PATH = os.path.join(SCRIPT_DIR, 'saved_models', f'{data_name}.pth')
+# 过程性文件放在 script 目录下
+os.makedirs(os.path.join(SCRIPT_DIR, 'saved_models'), exist_ok=True)
+os.makedirs(os.path.join(SCRIPT_DIR, 'saved_checkpoints'), exist_ok=True)
 
 def eval_epoch(data, batch_size, model, ctx_sample, tmp_sample, rand_sampler):
     init_seeds(60)
@@ -338,7 +341,7 @@ for m in range(1):
 
         if early_stopping(val_ap, st_model):
             print("Early stopping")
-            best_model_path = f'saved_checkpoints/{data_name}.pth'
+            best_model_path = os.path.join(SCRIPT_DIR, 'saved_checkpoints', f'{data_name}.pth')
             st_model.load_state_dict(torch.load(best_model_path))
             torch.save(st_model.state_dict(), MODEL_SAVE_PATH)
             print("Loaded the best model at epoch {} for inference".format(early_stopping.best_epoch))
