@@ -1,0 +1,16 @@
+# EduTGT 依赖（Python 3.8+）
+# 安装：pip install -r requirements.txt
+# 若需 GPU，请先按 https://pytorch.org 安装对应版本的 torch，再执行上式。
+
+torch>=1.9.0
+numpy>=1.19.0
+pandas>=1.2.0
+scipy>=1.6.0
+scikit-learn>=0.24.0
+tqdm>=4.60.0
+xgboost>=1.4.0
+
+# 可选：链路预测基线 TGN / GraphSAGE 需要 torch-geometric。
+# 若上面命令已成功，可稍后单独安装（受网络/代理影响可能失败，可改用国内镜像或跳过）：
+#   pip install torch-geometric
+# 不安装时，ContraTGT、main_link、TGAT 及 passfail 脚本均可正常运行。

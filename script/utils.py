@@ -17,7 +17,7 @@ def get_args():
                         choices=['socialevolve_1m', 'wiki', 'slashdot', 'bitcoinotc','ubuntu','oulad'],
                         default='slashdot')
     parser.add_argument('--data_dir', type=str, default=None,
-                        help='指定 code/data/all_data 下子目录名，如 data_0.1，将使用该目录下 ml_oulad.csv 与 oulad.content；指定后忽略 -d/--data 的数据路径')
+                        help='指定 data/all_data 下子目录名（项目根下），如 data_abc_0.01，将使用该目录下 ml_oulad.csv 与 oulad.content；指定后忽略 -d/--data')
 
     # general training hyper-parameters
     parser.add_argument('--ctx_sample', type=int, default=40, help='spatial sampling')
@@ -37,6 +37,11 @@ def get_args():
     parser.add_argument('--aug_len', type=float, default=1.5, help='augmentation seq lenqth')
     parser.add_argument('--split_by_ui', action='store_true',
                         help='按 (u,i) 划分 train/val/test，与基线一致；默认按时间划分')
+    parser.add_argument('--paper_eval', action='store_true',
+                        help='与论文 Section V-A 一致：按边随机 1:1:8 划分（10%% train, 10%% val, 80%% test）')
+    parser.add_argument('--train_ratio', type=float, default=None, help='与 paper_eval 二选一；若设则按边随机划分')
+    parser.add_argument('--val_ratio', type=float, default=0.1, help='验证集比例（paper_eval 时为 0.1）')
+    parser.add_argument('--test_ratio', type=float, default=0.2, help='测试集比例（paper_eval 时为 0.8）')
 
     try:
         args = parser.parse_args()
@@ -49,8 +54,8 @@ def get_args():
 def get_data_paths(args):
     """
     根据 args.data 或 args.data_dir 解析边数据文件、节点特征文件与 data_name。
-    - 若指定 --data_dir（如 data_0.1）：使用 code/data/all_data/data_0.1/ml_oulad.csv 与 oulad.content，
-      假定在 code 目录下运行，data_name 为目录名（如 data_0.1）。
+    - 若指定 --data_dir（如 data_abc_0.01）：使用 <项目根>/data/all_data/<data_dir>/ml_oulad.csv 与 oulad.content，
+      假定在项目根（EduTGT）下运行，data_name 为目录名。
     - 否则使用 data/ml_{data}.csv 与 node_feature/{data}.content。
     返回 (edges_file, feature_file, data_name)。
     """
@@ -118,7 +123,7 @@ class Namespace(object):
         self.__dict__.update(adict)
 
 
-def Dataset(file='data/ml_slashdot.csv', starting_line=1, split_by_ui=False, val_ratio=0.1, test_ratio=0.2, random_state=42):
+def Dataset(file='data/ml_slashdot.csv', starting_line=1, split_by_ui=False, train_ratio=None, val_ratio=0.1, test_ratio=0.2, random_state=42):
     ecols = Namespace({'id': 0,
                        'FromNodeId': 1,
                        'ToNodeId': 2,
@@ -159,7 +164,24 @@ def Dataset(file='data/ml_slashdot.csv', starting_line=1, split_by_ui=False, val
 
     edge = {'idx': idx, 'labels': labels}
 
-    if split_by_ui:
+    if train_ratio is not None:
+        # 按边随机划分，与论文 Section V-A 一致：1:1:8 => train_ratio=0.1, val_ratio=0.1, test_ratio=0.8
+        n = edge['idx'].size(0)
+        np.random.seed(random_state)
+        perm = np.random.permutation(n)
+        n_train = int(n * train_ratio)
+        n_val = int(n * val_ratio)
+        n_test = n - n_train - n_val
+        if n_test < 0:
+            n_test = 0
+            n_val = n - n_train
+        valid_train_flag = torch.zeros(n, dtype=torch.bool)
+        valid_val_flag = torch.zeros(n, dtype=torch.bool)
+        valid_test_flag = torch.zeros(n, dtype=torch.bool)
+        valid_train_flag[perm[:n_train]] = True
+        valid_val_flag[perm[n_train:n_train + n_val]] = True
+        valid_test_flag[perm[n_train + n_val:]] = True
+    elif split_by_ui:
         # 按 (u,i) 划分：与基线一致，训练集上可看到每个 (u,i) 的完整时间边
         ui = np.array(edge['idx'][:, [0, 1]])
         lab = np.array(edge['labels'])

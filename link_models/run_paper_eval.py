@@ -1,0 +1,108 @@
+"""
+与论文 Section V-B 一致的评估：多 seed 运行并汇总 mean ± std。
+用法（在项目根 EduTGT 下）：
+  # 默认：跑当前支持的所有链路模型（ContraTGT + TGAT + GraphSAGE + TGN），并按 seeds 汇总
+  python link_models/run_paper_eval.py --data_dir data_abc_0.01 --seeds 42,43,44,45,46
+
+  # 只跑部分方法（如仅 ContraTGT 和 TGAT）
+  python link_models/run_paper_eval.py --data_dir data_abc_0.01 --seeds 42 --methods contratgt,tgat
+"""
+import os
+import sys
+import argparse
+import subprocess
+import shutil
+import pandas as pd
+import numpy as np
+
+CODE_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+
+def run_one(script_name, data_dir, seed, code_root):
+    """运行单次，返回是否成功。"""
+    cmd = [
+        sys.executable,
+        os.path.join(code_root, 'link_models', script_name),
+        '--data_dir', data_dir,
+        '--paper_eval',
+        '--seed', str(seed),
+    ]
+    ret = subprocess.run(cmd, cwd=code_root)
+    return ret.returncode == 0
+
+
+def main():
+    parser = argparse.ArgumentParser(description='论文 Section V-B 评估：多 seed 运行并汇总 mean±std')
+    parser.add_argument('--data_dir', type=str, required=True, help='如 data_abc_0.01')
+    parser.add_argument('--seeds', type=str, default='42,43,44,45,46', help='逗号分隔的随机种子')
+    # 默认跑所有支持的方法：ContraTGT + TGAT + GraphSAGE + TGN
+    parser.add_argument('--methods', type=str, default='contratgt,tgat,graphsage,tgn',
+                        help='逗号分隔：contratgt,tgat,graphsage,tgn')
+    parser.add_argument('--no_run', action='store_true', help='仅汇总已有 CSV，不重新跑')
+    args = parser.parse_args()
+
+    seeds = [int(x.strip()) for x in args.seeds.split(',')]
+    methods = [x.strip().lower() for x in args.methods.split(',')]
+    result_dir = os.path.join(CODE_ROOT, 'result', 'link', args.data_dir)
+    data_name = args.data_dir
+    os.makedirs(result_dir, exist_ok=True)
+
+    method_script = {
+        'contratgt': 'main_link.py',
+        'tgat': 'train_link_tgat.py',
+        'graphsage': 'train_link_graphsage.py',
+        'tgn': 'train_link_tgn.py',
+    }
+    method_tag = {'contratgt': 'contratgt', 'tgat': 'tgat', 'graphsage': 'graphsage', 'tgn': 'tgn'}
+
+    if not args.no_run:
+        for method in methods:
+            script_name = method_script.get(method)
+            if not script_name:
+                continue
+            tag = method_tag.get(method, method)
+            for seed in seeds:
+                print(f"运行 {method} seed={seed} ...")
+                ok = run_one(script_name, args.data_dir, seed, CODE_ROOT)
+                if not ok:
+                    print(f"  warning: {method} seed={seed} 返回非 0")
+                src = os.path.join(result_dir, f'link_{tag}_{data_name}.csv')
+                dst = os.path.join(result_dir, f'link_{tag}_{data_name}_s{seed}.csv')
+                if os.path.exists(src):
+                    shutil.copy(src, dst)
+                    print(f"  已保存 {dst}")
+
+    summary = []
+    for method in methods:
+        tag = method_tag.get(method, method)
+        collected = []
+        for s in seeds:
+            p = os.path.join(result_dir, f'link_{tag}_{data_name}_s{s}.csv')
+            if not os.path.exists(p):
+                p = os.path.join(result_dir, f'link_{tag}_{data_name}.csv')
+            if os.path.exists(p):
+                collected.append(pd.read_csv(p).iloc[0])
+        if not collected:
+            continue
+        agg_df = pd.DataFrame(collected)
+        means = agg_df.mean(numeric_only=True)
+        stds = agg_df.std(numeric_only=True)
+        row = {'Method': method}
+        for c in ['Test_AUC', 'Test_AP', 'Test_Acc', 'NN_Test_AUC', 'NN_Test_AP', 'NN_Test_Acc']:
+            if c in means.index:
+                m, s = means[c], stds.get(c, np.nan)
+                row[c] = f"{m:.4f}±{s:.4f}" if pd.notna(s) and np.isfinite(s) else f"{m:.4f}"
+        summary.append(row)
+
+    if summary:
+        out_df = pd.DataFrame(summary)
+        out_path = os.path.join(result_dir, f'paper_eval_summary_{data_name}.csv')
+        out_df.to_csv(out_path, index=False)
+        print(f"\n汇总已保存: {out_path}")
+        print(out_df.to_string())
+    else:
+        print("未找到可汇总的 CSV。请先不带 --no_run 运行本脚本，或手动跑各方法并保存 link_*_s{seed}.csv。")
+
+
+if __name__ == '__main__':
+    main()

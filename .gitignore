@@ -1,6 +1,3 @@
-# 大文件（超过 GitHub 限制）
-data/ml_oulad.csv
-
 # Python
 __pycache__/
 *.py[cod]
@@ -46,8 +43,7 @@ wheels/
 
 # 数据文件（大文件）
 *.csv
-!OULAD-main/data/*.csv
-!OULAD-main/pipeline/*.csv
+!data/OULAD_rawdata/*.csv
 
 # 日志文件
 *.log

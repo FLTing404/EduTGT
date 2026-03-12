@@ -23,7 +23,9 @@ LEARNING_RATE = 1e-3
 device = torch.device('cuda:{}'.format(GPU))
 
 edges_file, feature_file, data_name = get_data_paths(args)
-edges, num_nodes, nodes_list, node_time,train_data,_,_,_,_ = Dataset(file=edges_file)
+# 与 ContraTGT/链路/下游一致：按边随机 1:1:8，相同 seed，便于预训练对下游有增益
+edges, num_nodes, nodes_list, node_time, train_data, _, _, _, _ = Dataset(
+    file=edges_file, train_ratio=0.1, val_ratio=0.1, test_ratio=0.8, random_state=getattr(args, 'seed', 60))
 adj_list = get_adj_list(edges)
 node_l, ts_l, idx_l, offset_l = init_offset(adj_list)
 interaction_list, idx_list_sorted = get_interaction_list(edges)
