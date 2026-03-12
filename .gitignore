@@ -42,9 +42,10 @@ wheels/
 *.pkl
 *.model
 
-# 数据文件（大文件）
+# 数据文件（大文件，不推送到远程）
 *.csv
-!data/OULAD_rawdata/*.csv
+# 原始 OULAD 数据体积大，请自行下载到 data/OULAD_rawdata/，不纳入版本控制
+data/OULAD_rawdata/
 
 # 日志文件
 *.log
