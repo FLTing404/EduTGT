@@ -9,7 +9,24 @@ from tqdm import tqdm
 import torch.optim as optim
 from sklearn.metrics import roc_auc_score, average_precision_score
 import random
+import numpy as np
 import os
+
+def _sample_fake_node(node_sum, batch_data, train_rand_sampler, enhanced_sampler, neg_sampler_mode, neg_hard_ratio=0.3):
+    """训练负采样：random=仅 RandEdgeSampler；two_stage=(1-neg_hard_ratio) random + neg_hard_ratio hard。"""
+    if neg_sampler_mode != 'two_stage' or enhanced_sampler is None:
+        return train_rand_sampler.sample(node_sum)
+    p_random = 1.0 - neg_hard_ratio
+    u_np = batch_data['idx'][:, 0].numpy() if hasattr(batch_data['idx'][:, 0], 'numpy') else np.array(batch_data['idx'][:, 0])
+    ts_np = batch_data['idx'][:, 2].numpy() if hasattr(batch_data['idx'][:, 2], 'numpy') else np.array(batch_data['idx'][:, 2])
+    i_np = batch_data['idx'][:, 1].numpy() if hasattr(batch_data['idx'][:, 1], 'numpy') else np.array(batch_data['idx'][:, 1])
+    out = np.empty(node_sum, dtype=np.int64)
+    for i in range(node_sum):
+        if np.random.rand() < p_random:
+            out[i] = train_rand_sampler.sample(1)[0]
+        else:
+            out[i] = enhanced_sampler.sample(1, u_batch=u_np[i:i+1], ts_batch=ts_np[i:i+1], i_pos=i_np[i:i+1])[0]
+    return out
 
 args, sys_argv = get_args()
 
@@ -23,9 +40,9 @@ LEARNING_RATE = 1e-3
 device = torch.device('cuda:{}'.format(GPU))
 
 edges_file, feature_file, data_name = get_data_paths(args)
-# 与 ContraTGT/链路/下游一致：按边随机 1:1:8，相同 seed，便于预训练对下游有增益
+# 与 ContraTGT 原代码一致：按时间划分（quantile 0.1, 0.2）=> 10% train, 10% val, 80% test
 edges, num_nodes, nodes_list, node_time, train_data, _, _, _, _ = Dataset(
-    file=edges_file, train_ratio=0.1, val_ratio=0.1, test_ratio=0.8, random_state=getattr(args, 'seed', 60))
+    file=edges_file, train_ratio=None, random_state=getattr(args, 'seed', 60))
 adj_list = get_adj_list(edges)
 node_l, ts_l, idx_l, offset_l = init_offset(adj_list)
 interaction_list, idx_list_sorted = get_interaction_list(edges)
@@ -43,36 +60,53 @@ outdim = 128
 nheads = 4
 dropout = args.drop_out
 N = 2
-n_epoch = args.n_epoch
+n_epoch = max(80, getattr(args, 'n_epoch', 50))  # 预训练至少 80 epoch 以充分学习
 BATCH_SIZE = args.bs
 num_instance = len(train_data['idx'])
 num_batch = math.ceil(num_instance / BATCH_SIZE)
-ctx_sample=30
-tmp_sample =21
+ctx_sample = getattr(args, 'ctx_sample', 30) or 30
+tmp_sample = getattr(args, 'tmp_sample', 21) or 21
 pretrain_path = os.path.join(SCRIPT_DIR, 'pretrain_model', f'{data_name}.pth')
 
-train_rand_sampler = RandEdgeSampler(train_data['idx'][:,1])
+# 训练负采样：random=仅 RandEdgeSampler；two_stage=70% random + 30% hard（test 仍 random，避免 distribution shift）
+train_rand_sampler = RandEdgeSampler(train_data['idx'][:, 1])
+neg_sampler_mode = getattr(args, 'neg_sampler', 'random')
+neg_hard_ratio = getattr(args, 'neg_hard_ratio', 0.3)
+consistency_weight = getattr(args, 'consistency_weight', 0.1)
+enhanced_sampler = None
+if neg_sampler_mode == 'two_stage':
+    from negative_sampling import EnhancedNegSampler
+    enhanced_sampler = EnhancedNegSampler(
+        edges['idx'], train_data['idx'][:, 1], seed=getattr(args, 'seed', 60),
+        p_module=0.1, p_temporal=0.1, p_degree=0.1
+    )
 
+use_topk = not getattr(args, 'no_topk', False)
+use_student_consistency = not getattr(args, 'no_student_consistency', False)
 model = SpatialTemporal(in_dim=indim,out_dim=outdim,n_heads=nheads,dropout=dropout,N=N)
 model = model.to(device)
-mid_model = SpatialTemporal(in_dim=indim,out_dim=outdim,n_heads=nheads,dropout=dropout,N=N)
-mid_model.to(device)
-optimizer = optim.Adam(model.parameters(),lr=1e-3, weight_decay=1e-5)#3e-4
+mid_model = SpatialTemporal(in_dim=indim,out_dim=outdim,n_heads=nheads,dropout=dropout,N=N).to(device) if use_topk else None
+optimizer = optim.Adam(model.parameters(),lr=1e-3, weight_decay=1e-5)
 criterion = nn.BCELoss()
 cos_loss = nn.CosineEmbeddingLoss()
-top_k = Top_k(in_dim=indim).to(device)
-optimizer_top = optim.Adam(top_k.parameters(),lr=1e-3, weight_decay=1e-5)
-early_stopping = EarlyStopping(dn=data_name, max_round=5, checkpoint_dir=os.path.join(SCRIPT_DIR, 'saved_checkpoints'))
-alpha = 0.6
-MODEL_SAVE_PATH = os.path.join(SCRIPT_DIR, 'pretrain_model', f'{data_name}.pth')
-MIDDLE_PATH = os.path.join(SCRIPT_DIR, 'middle_model', f'{data_name}.pth')
+top_k = Top_k(in_dim=indim).to(device) if use_topk else None
+optimizer_top = optim.Adam(top_k.parameters(), lr=1e-3, weight_decay=1e-5) if use_topk else None
+alpha = getattr(args, 'alpha', 0.35)
+ablation_suffix = getattr(args, 'ablation_suffix', '') or ''
+sfx = ('_' + ablation_suffix) if ablation_suffix else ''
+# 多 seed 消融时按 seed 区分保存，避免互相覆盖；后续 main_link / passfail 可用 --ablation_suffix + --seed 加载
+seed_sfx = ('_seed' + str(getattr(args, 'seed', 60))) if ablation_suffix else ''
+early_stopping = EarlyStopping(dn=data_name + sfx + seed_sfx, max_round=3, checkpoint_dir=os.path.join(SCRIPT_DIR, 'saved_checkpoints'))
+MODEL_SAVE_PATH = os.path.join(SCRIPT_DIR, 'pretrain_model', f'{data_name}{sfx}{seed_sfx}.pth')
+MIDDLE_PATH = os.path.join(SCRIPT_DIR, 'middle_model', f'{data_name}{sfx}{seed_sfx}.pth')
 # 过程性文件放在 script 目录下
 os.makedirs(os.path.join(SCRIPT_DIR, 'pretrain_model'), exist_ok=True)
 os.makedirs(os.path.join(SCRIPT_DIR, 'middle_model'), exist_ok=True)
 os.makedirs(os.path.join(SCRIPT_DIR, 'saved_checkpoints'), exist_ok=True)
 spasample = round(ctx_sample * args.aug_len)
 tmpsample = round(tmp_sample * args.aug_len)
-torch.save(model.state_dict(), MIDDLE_PATH)
+if use_topk:
+    torch.save(model.state_dict(), MIDDLE_PATH)
 
 for epoch in tqdm(range(n_epoch)):
     top_loss = []
@@ -88,12 +122,12 @@ for epoch in tqdm(range(n_epoch)):
         node_sum = len(batch_data['idx'])
 
         ###################################train for top_k#####################################
-        model = model.eval()
-        top_k = top_k.train()
-        # top_k train
-        mid_model.load_state_dict(torch.load(MIDDLE_PATH))
-        for se in range(6):
-            # spatial layer
+        if use_topk:
+            model = model.eval()
+            top_k = top_k.train()
+            mid_model.load_state_dict(torch.load(MIDDLE_PATH, map_location=device))
+        for se in range(getattr(args, 'top_k_steps', 6) if use_topk else 0):
+            # spatial layer (仅 use_topk 时执行)
             
             spa_src_node, spa_src_ts, spa_src_idx, spa_src_mask = get_neighbor_list(node_l, ts_l, idx_l, offset_l,
                                                                                     batch_data['idx'][:, 0],
@@ -183,7 +217,7 @@ for epoch in tqdm(range(n_epoch)):
             tmp_mask_1 = torch.tensor(tmp_mask_1).to(device)
 
             
-            fake_node = train_rand_sampler.sample(node_sum)
+            fake_node = _sample_fake_node(node_sum, batch_data, train_rand_sampler, enhanced_sampler, neg_sampler_mode, neg_hard_ratio)
             fake_ctx_node, fake_ctx_ts, fake_ctx_idx, fake_ctx_mask = get_neighbor_list(node_l, ts_l, idx_l, offset_l,
                                                                                         fake_node,
                                                                                         batch_data['idx'][:, 2],
@@ -257,8 +291,9 @@ for epoch in tqdm(range(n_epoch)):
 
         ###################################train for model######################################
         model.train()
-        top_k.eval()
-        for se in range(3):
+        if use_topk:
+            top_k.eval()
+        for se in range(getattr(args, 'model_steps', 3)):
             
             # spatial view
             spa_node, spa_ts, spa_idx, spa_mask = get_neighbor_list(node_l, ts_l, idx_l, offset_l,
@@ -276,10 +311,13 @@ for epoch in tqdm(range(n_epoch)):
 
             spa_mask = torch.tensor(spa_mask).to(device)
             spa_embed = model.get_seq_embed(seq=spa_fea, mask=spa_mask, view='spatial')
-            with torch.no_grad():
-                spa_feature, spa_mask = top_k(spa_fea, spa_mask, spasample, spa_embed)
-            spa_mask = spa_mask.to(device)
-            spa_feature = spa_feature.to(device)
+            if use_topk:
+                with torch.no_grad():
+                    spa_feature, spa_mask = top_k(spa_fea, spa_mask, spasample, spa_embed)
+                spa_mask = spa_mask.to(device)
+                spa_feature = spa_feature.to(device)
+            else:
+                spa_feature, spa_mask = spa_fea.to(device), spa_mask
 
             # temporal view
             tmp_node, tmp_mask, tmp_ts = get_unique_node_sequence(batch_data, edges, (tmp_sample - 1) * 2 + 1,
@@ -296,10 +334,13 @@ for epoch in tqdm(range(n_epoch)):
 
             tmp_mask = torch.tensor(tmp_mask).to(device)
             tmp_embed = model.get_seq_embed(seq=tmp_fea, mask=tmp_mask, view='temporal')
-            with torch.no_grad():
-                tmp_feature, tmp_mask = top_k(tmp_fea, tmp_mask, tmpsample, tmp_embed)
-            tmp_mask = tmp_mask.to(device)
-            tmp_feature = tmp_feature.to(device)
+            if use_topk:
+                with torch.no_grad():
+                    tmp_feature, tmp_mask = top_k(tmp_fea, tmp_mask, tmpsample, tmp_embed)
+                tmp_mask = tmp_mask.to(device)
+                tmp_feature = tmp_feature.to(device)
+            else:
+                tmp_feature, tmp_mask = tmp_fea, tmp_mask
 
             
             # spatial view
@@ -330,7 +371,7 @@ for epoch in tqdm(range(n_epoch)):
             temp_src_mask = torch.LongTensor(temp_src_mask).to(device)
 
             #####fake node#####
-            fake_node = train_rand_sampler.sample(node_sum)
+            fake_node = _sample_fake_node(node_sum, batch_data, train_rand_sampler, enhanced_sampler, neg_sampler_mode, neg_hard_ratio)
             fake_con_node, fake_con_ts, fake_con_idx, fake_con_mask = get_neighbor_list(node_l, ts_l, idx_l, offset_l,
                                                                                         fake_node,
                                                                                         batch_data['idx'][:, 2],
@@ -371,22 +412,36 @@ for epoch in tqdm(range(n_epoch)):
                 target_2 = torch.zeros(node_sum, dtype=torch.float, device=device) - 1
 
             pos_loss = cos_loss(embed_1, embed_2.detach(), target_1)
-            neg_loss = cos_loss(embed_1, embed_fake.detach(), target_2)  
+            neg_loss = cos_loss(embed_1, embed_fake.detach(), target_2)
             loss = pos_loss + neg_loss
+            if use_student_consistency:
+                src_embed = model.getEmbed(con_src_feature, temp_src_feature, con_src_mask, temp_src_mask)
+                batch_u_np = batch_data['idx'][:, 0].numpy() if hasattr(batch_data['idx'][:, 0], 'numpy') else np.array(batch_data['idx'][:, 0])
+                consistency_loss = torch.tensor(0.0, device=device)
+                for u in np.unique(batch_u_np):
+                    idx_u = np.where(batch_u_np == u)[0]
+                    if len(idx_u) > 1:
+                        emb_u = src_embed[idx_u]
+                        mean_u = emb_u.mean(dim=0)
+                        consistency_loss = consistency_loss + (emb_u - mean_u).pow(2).sum()
+                if consistency_loss.item() > 0:
+                    loss = loss + consistency_weight * consistency_loss / max(1, node_sum)
             loss.backward()
             optimizer.step()
             train_loss.append(loss.item())
 
-        torch.save(model.state_dict(), MIDDLE_PATH)
+        if use_topk:
+            torch.save(model.state_dict(), MIDDLE_PATH)
 
     avg_loss = np.average(train_loss)
-    avg_top_loss = np.average(top_loss)
-    print('epoch ', epoch, 'train_loss:', avg_loss, ',top_loss:', avg_top_loss, 'con_loss:', np.average(divloss_1),
-          'div_loss:', np.average(divloss_2))
+    avg_top_loss = np.average(top_loss) if top_loss else 0.0
+    avg_con = np.average(divloss_1) if divloss_1 else 0.0
+    avg_div = np.average(divloss_2) if divloss_2 else 0.0
+    print('epoch ', epoch, 'train_loss:', avg_loss, ',top_loss:', avg_top_loss, 'con_loss:', avg_con, 'div_loss:', avg_div)
     if early_stopping(-avg_loss, model):
         print("Early stopping")
         break
 print("Loaded the best model at epoch {} for inference".format(early_stopping.best_epoch))
-best_model_path = os.path.join(SCRIPT_DIR, 'saved_checkpoints', f'{data_name}.pth')
+best_model_path = os.path.join(SCRIPT_DIR, 'saved_checkpoints', f'{data_name}{sfx}{seed_sfx}.pth')
 model.load_state_dict(torch.load(best_model_path))
 torch.save(model.state_dict(), MODEL_SAVE_PATH)

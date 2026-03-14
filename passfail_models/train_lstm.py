@@ -57,6 +57,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--data_dir', type=str, required=True)
     parser.add_argument('--seed', type=int, default=42)
+    parser.add_argument('--ablation_suffix', type=str, default='', help='消融时与 pretrain 一致，如 baseline；配合 --seed 加载对应预训练')
     parser.add_argument('--mode', type=str, choices=['pure', 'contratgt'], required=True)
     parser.add_argument('--hidden_size', type=int, default=64)
     parser.add_argument('--num_layers', type=int, default=1)
@@ -88,8 +89,10 @@ def main():
         from utils import Dataset
         _, _, _, _, train_data, test_data, val_data, _, _ = Dataset(
             file=edges_file, split_by_ui=False, train_ratio=0.1, val_ratio=0.1, test_ratio=0.8, random_state=args.seed)
-        out = run_extract(edges_file, feature_file,
-                         os.path.join(CODE_ROOT, 'script', 'pretrain_model', f'{data_name}.pth'),
+        _ablation_sfx = getattr(args, 'ablation_suffix', '') or ''
+        _seed_sfx = ('_seed' + str(args.seed)) if _ablation_sfx else ''
+        pretrain_path = os.path.join(CODE_ROOT, 'script', 'pretrain_model', f'{data_name}{"_" + _ablation_sfx if _ablation_sfx else ""}{_seed_sfx}.pth')
+        out = run_extract(edges_file, feature_file, pretrain_path,
                          train_data, val_data, test_data, edge, train_ui, val_ui, test_ui,
                          seed=args.seed, seq_max_len=args.max_len, device=device)
         X_train_seq, X_val_seq, X_test_seq = out['X_train_seq'], out['X_val_seq'], out['X_test_seq']
@@ -105,7 +108,10 @@ def main():
 
     model = LSTMHead(input_dim, hidden_size=args.hidden_size, num_layers=args.num_layers).to(device)
     opt = torch.optim.Adam(model.parameters(), lr=args.lr)
-    criterion = nn.BCEWithLogitsLoss()
+    # 正类权重：缓解类别不平衡，避免模型全预测多数类导致 Acc 极低
+    n_pos, n_neg = int(y_train.sum()), len(y_train) - int(y_train.sum())
+    pos_weight = torch.tensor([n_neg / max(n_pos, 1)], dtype=torch.float32, device=device)
+    criterion = nn.BCEWithLogitsLoss(pos_weight=pos_weight)
 
     best_val_ap = 0
     for epoch in range(args.n_epoch):

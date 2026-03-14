@@ -64,11 +64,16 @@ num_instance = len(train_data['idx'])
 num_batch = math.ceil(num_instance / BATCH_SIZE)
 ctx_sample = args.ctx_sample
 tmp_sample = args.tmp_sample
-pretrain_path = os.path.join(CODE_ROOT, 'script', 'pretrain_model', f'{data_name}.pth')
+# 消融多 seed 时与 pretrain/main_link 命名一致，可用 --ablation_suffix + --seed 指定加载哪份预训练
+_ablation_sfx = getattr(args, 'ablation_suffix', '') or ''
+_seed = getattr(args, 'seed', 60)
+_seed_sfx = ('_seed' + str(_seed)) if _ablation_sfx else ''
+pretrain_path = os.path.join(CODE_ROOT, 'script', 'pretrain_model', f'{data_name}{"_" + _ablation_sfx if _ablation_sfx else ""}{_seed_sfx}.pth')
 
+# 修复不公平：为了公平对比，所有 rand_sampler 应该只使用训练集的节点
 train_rand_sampler = RandEdgeSampler(train_data['idx'][:,1])
-val_rand_sampler = RandEdgeSampler(edges['idx'][:,1])
-test_rand_sampler = RandEdgeSampler(edges['idx'][:,1])
+val_rand_sampler = RandEdgeSampler(train_data['idx'][:,1])
+test_rand_sampler = RandEdgeSampler(train_data['idx'][:,1])
 
 st_model = SpatialTemporal(in_dim=indim,out_dim=outdim,n_heads=nheads,dropout=dropout,N=N)
 st_model.load_state_dict(torch.load(pretrain_path))
@@ -81,14 +86,15 @@ n_neg = len(train_labels_01) - n_pos
 pos_weight = torch.tensor([n_neg / max(n_pos, 1)], device=device)
 st_criterion = torch.nn.BCELoss(reduction='mean')
 st_criterion_eval = torch.nn.BCELoss()
-early_stopping = EarlyStopping(dn=data_name, max_round=8, checkpoint_dir=os.path.join(CODE_ROOT, 'script', 'saved_checkpoints'))
-MODEL_SAVE_PATH = os.path.join(CODE_ROOT, 'script', 'saved_models', f'{data_name}.pth')
+_passfail_dn = f'{data_name}{"_" + _ablation_sfx if _ablation_sfx else ""}{_seed_sfx}'  # 消融多 seed 时 passfail checkpoint 也按 seed 区分
+early_stopping = EarlyStopping(dn=_passfail_dn, max_round=8, checkpoint_dir=os.path.join(CODE_ROOT, 'script', 'saved_checkpoints'))
+MODEL_SAVE_PATH = os.path.join(CODE_ROOT, 'script', 'saved_models', f'{_passfail_dn}.pth')
 # 预训练/checkpoint/saved_models 使用 script 目录
 os.makedirs(os.path.join(CODE_ROOT, 'script', 'saved_models'), exist_ok=True)
 os.makedirs(os.path.join(CODE_ROOT, 'script', 'saved_checkpoints'), exist_ok=True)
 
 def eval_epoch(data, batch_size, model, ctx_sample, tmp_sample, rand_sampler):
-    init_seeds(60)
+    init_seeds(getattr(args, 'seed', 60))
     num_instance = len(data['idx'])
     loss, acc, ap, auc = [], [], [], []
     num_batch = math.ceil(num_instance / batch_size)
@@ -216,7 +222,7 @@ def eval_epoch(data, batch_size, model, ctx_sample, tmp_sample, rand_sampler):
 
 def collect_edge_scores(data, batch_size, model, ctx_sample, tmp_sample, rand_sampler):
     """遍历 data，对每条边得到 (u, i, ts, pos_prob, label_01)，用于课程级聚合。"""
-    init_seeds(60)
+    init_seeds(getattr(args, 'seed', 60))
     model.eval()
     num_instance = len(data['idx'])
     num_batch = math.ceil(num_instance / batch_size)
@@ -500,13 +506,13 @@ for m in range(1):
 
         if early_stopping(val_ap, st_model):
             print("Early stopping")
-            best_model_path = os.path.join(CODE_ROOT, 'script', 'saved_checkpoints', f'{data_name}.pth')
+            best_model_path = os.path.join(CODE_ROOT, 'script', 'saved_checkpoints', f'{_passfail_dn}.pth')
             st_model.load_state_dict(torch.load(best_model_path))
             torch.save(st_model.state_dict(), MODEL_SAVE_PATH)
             print("Loaded the best model at epoch {} for inference".format(early_stopping.best_epoch))
             break
     # 使用最佳模型做最终评估（课程级：与 models 的 (u,i) 级别 AUC/AP/Acc 一致）
-    best_model_path = os.path.join(CODE_ROOT, 'script', 'saved_checkpoints', f'{data_name}.pth')
+    best_model_path = os.path.join(CODE_ROOT, 'script', 'saved_checkpoints', f'{_passfail_dn}.pth')
     if os.path.exists(best_model_path):
         st_model.load_state_dict(torch.load(best_model_path))
     train_acc, train_ap, train_loss, train_auc = eval_course_level(
@@ -531,6 +537,6 @@ for m in range(1):
         'Test_AUC': test_auc, 'Test_AP': test_ap, 'Test_Acc': test_acc, 'Test_Loss': test_loss,
         'NN_Test_AUC': nn_test_auc, 'NN_Test_AP': nn_test_ap, 'NN_Test_Acc': nn_test_acc, 'NN_Test_Loss': nn_test_loss,
     }
-    results_path = os.path.join(result_dir, f'script_{data_name}.csv')
+    results_path = os.path.join(result_dir, f'edutgt_{data_name}.csv')
     pd.DataFrame([results]).to_csv(results_path, index=False)
     print(f"结果已保存: {results_path}")

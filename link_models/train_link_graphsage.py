@@ -24,6 +24,8 @@ from link_models.data_utils import (
     split_edges_by_ui,
     split_edges_by_ratio,
     get_inductive_mask,
+    get_dst_nodes,
+    sample_neg_dst_same_u,
     list_available_data,
 )
 
@@ -111,7 +113,7 @@ def evaluate(model, x, edge_index, ui, y, device, batch_size=1024):
 
 
 def run_graphsage(edges_file, feature_file, data_name, code_root, split_by_ui=False,
-                  paper_eval=False, train_ratio=None, val_ratio=0.15, test_ratio=0.2, seed=42, device=None,
+                  paper_eval=False, train_ratio=None, val_ratio=0.1, test_ratio=0.8, seed=42, device=None,
                   hidden_dim=128, out_dim=64, dropout=0.2, epochs=100, lr=0.01, batch_size=1024):
     if not HAS_PYG:
         raise RuntimeError("需要安装 PyTorch Geometric: pip install torch_geometric")
@@ -131,8 +133,9 @@ def run_graphsage(edges_file, feature_file, data_name, code_root, split_by_ui=Fa
             u, i, ts, val_ratio=val_ratio, test_ratio=test_ratio, seed=seed
         )
     else:
+        # 与 ContraTGT 统一：按时间 quantile 0.1, 0.2 => 10% train, 10% val, 80% test
         (u_tr, i_tr, t_tr), (u_val, i_val, t_val), (u_te, i_te, t_te) = split_edges_by_time(
-            u, i, ts, val_ratio=val_ratio, test_ratio=test_ratio, seed=seed
+            u, i, ts, val_ratio=0.1, test_ratio=0.8, seed=seed
         )
 
     # 仅用训练集边建图（防泄露）
@@ -140,36 +143,22 @@ def run_graphsage(edges_file, feature_file, data_name, code_root, split_by_ui=Fa
     x = torch.from_numpy(x_np).float().to(device)
     in_dim = x_np.shape[1]
 
-    # 正样本 = 训练边，负样本 = 随机 (u,i) 不在训练边集中
-    train_edges_set = set(zip(u_tr.tolist(), i_tr.tolist()))
+    # 与 ContraTGT 公平一致：训练负采样用训练集目标节点；Val/Test 用全量边目标节点
+    rng = np.random.default_rng(seed)
+    dst_nodes_train = get_dst_nodes(i_tr)
+    all_dst = np.unique(np.concatenate([i_tr, i_val, i_te]))
     pos_ui = np.stack([u_tr, i_tr], axis=1)
     n_pos = len(pos_ui)
-    n_neg = n_pos
-    neg_candidates = []
-    while len(neg_candidates) < n_neg:
-        neg_u = np.random.randint(0, num_nodes, (n_neg - len(neg_candidates)) * 2)
-        neg_i = np.random.randint(0, num_nodes, (n_neg - len(neg_candidates)) * 2)
-        for a, b in zip(neg_u, neg_i):
-            if a != b and (a, b) not in train_edges_set and (b, a) not in train_edges_set:
-                neg_candidates.append((a, b))
-                if len(neg_candidates) >= n_neg:
-                    break
-    neg_ui = np.array(neg_candidates[:n_neg])
+    neg_i = sample_neg_dst_same_u(i_tr, dst_nodes_train, rng)
+    neg_ui = np.stack([u_tr, neg_i], axis=1)
     train_ui = np.vstack([pos_ui, neg_ui])
-    train_y = np.concatenate([np.ones(n_pos), np.zeros(n_neg)]).astype(np.float32)
-    # Val/Test: 正=该集合中的边，负=随机非边
-    val_ui = np.stack([u_val, i_val], axis=1)
-    val_y = np.ones(len(val_ui), dtype=np.float32)
-    neg_vu = np.random.randint(0, num_nodes, len(val_ui))
-    neg_vi = np.random.randint(0, num_nodes, len(val_ui))
-    val_ui = np.vstack([val_ui, np.stack([neg_vu, neg_vi], axis=1)])
-    val_y = np.concatenate([val_y, np.zeros(len(neg_vu))])
-    te_ui = np.stack([u_te, i_te], axis=1)
-    te_y = np.ones(len(te_ui), dtype=np.float32)
-    neg_tu = np.random.randint(0, num_nodes, len(te_ui))
-    neg_ti = np.random.randint(0, num_nodes, len(te_ui))
-    te_ui = np.vstack([te_ui, np.stack([neg_tu, neg_ti], axis=1)])
-    te_y = np.concatenate([te_y, np.zeros(len(neg_tu))])
+    train_y = np.concatenate([np.ones(n_pos), np.zeros(n_pos)]).astype(np.float32)
+    neg_vi = sample_neg_dst_same_u(i_val, all_dst, rng)
+    val_ui = np.vstack([np.stack([u_val, i_val], axis=1), np.stack([u_val, neg_vi], axis=1)])
+    val_y = np.concatenate([np.ones(len(u_val)), np.zeros(len(u_val))]).astype(np.float32)
+    neg_ti = sample_neg_dst_same_u(i_te, all_dst, rng)
+    te_ui = np.vstack([np.stack([u_te, i_te], axis=1), np.stack([u_te, neg_ti], axis=1)])
+    te_y = np.concatenate([np.ones(len(u_te)), np.zeros(len(u_te))]).astype(np.float32)
 
     model = GraphSAGE(in_dim=in_dim, hidden_dim=hidden_dim, out_dim=out_dim, dropout=dropout).to(device)
     optimizer = torch.optim.Adam(model.parameters(), lr=lr)
@@ -188,9 +177,8 @@ def run_graphsage(edges_file, feature_file, data_name, code_root, split_by_ui=Fa
     ind_mask = get_inductive_mask(u_tr, i_tr, u_te, i_te)
     if ind_mask.sum() > 0:
         nn_pos = np.stack([u_te[ind_mask], i_te[ind_mask]], axis=1)
-        nn_neg_u = np.random.randint(0, num_nodes, ind_mask.sum())
-        nn_neg_i = np.random.randint(0, num_nodes, ind_mask.sum())
-        nn_ui = np.vstack([nn_pos, np.stack([nn_neg_u, nn_neg_i], axis=1)])
+        nn_neg_i = sample_neg_dst_same_u(i_te[ind_mask], all_dst, rng)
+        nn_ui = np.vstack([nn_pos, np.stack([u_te[ind_mask], nn_neg_i], axis=1)])
         nn_y = np.concatenate([np.ones(ind_mask.sum()), np.zeros(ind_mask.sum())]).astype(np.float32)
         nn_test_m = evaluate(model, x, edge_index, nn_ui, nn_y, device, batch_size)
         results = {

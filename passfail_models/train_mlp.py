@@ -80,7 +80,10 @@ def main():
 
     model = MLPHead(raw['feat_dim'], hidden_dims=hidden_dims).to(device)
     opt = torch.optim.Adam(model.parameters(), lr=args.lr)
-    criterion = nn.BCEWithLogitsLoss()
+    # 正类权重：缓解类别不平衡，避免模型全预测多数类导致 Acc 极低
+    n_pos, n_neg = int(y_train.sum()), len(y_train) - int(y_train.sum())
+    pos_weight = torch.tensor([n_neg / max(n_pos, 1)], dtype=torch.float32, device=device)
+    criterion = nn.BCEWithLogitsLoss(pos_weight=pos_weight)
 
     best_val_ap = 0
     for epoch in range(args.n_epoch):

@@ -25,6 +25,8 @@ from link_models.data_utils import (
     split_edges_by_ui,
     split_edges_by_ratio,
     get_inductive_mask,
+    get_dst_nodes,
+    sample_neg_dst_same_u,
     list_available_data,
 )
 
@@ -164,7 +166,7 @@ def get_ngh_tensors(ngh_dict, nodes, t_batch, x, k, device):
 
 
 def run_tgat(edges_file, feature_file, data_name, code_root, split_by_ui=False,
-             paper_eval=False, train_ratio=None, val_ratio=0.15, test_ratio=0.2, seed=42, device=None,
+             paper_eval=False, train_ratio=None, val_ratio=0.1, test_ratio=0.8, seed=42, device=None,
              hidden_dim=128, out_dim=64, time_dim=32, k_ngh=10, dropout=0.2,
              epochs=80, lr=1e-3, batch_size=512):
     device = device or torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -182,8 +184,9 @@ def run_tgat(edges_file, feature_file, data_name, code_root, split_by_ui=False,
             u, i, ts, val_ratio=val_ratio, test_ratio=test_ratio, seed=seed
         )
     else:
+        # 与 ContraTGT 统一：按时间 quantile 0.1, 0.2 => 10% train, 10% val, 80% test
         (u_tr, i_tr, t_tr), (u_val, i_val, t_val), (u_te, i_te, t_te) = split_edges_by_time(
-            u, i, ts, val_ratio=val_ratio, test_ratio=test_ratio, seed=seed
+            u, i, ts, val_ratio=0.1, test_ratio=0.8, seed=seed
         )
 
     # 用时序训练边构建邻居表（只取 t 之前的边）
@@ -198,12 +201,12 @@ def run_tgat(edges_file, feature_file, data_name, code_root, split_by_ui=False,
     optimizer = torch.optim.Adam(model.parameters(), lr=lr)
     criterion = nn.BCEWithLogitsLoss()
 
-    def make_batch(uu, ii, tt, neg_ratio=1.0):
+    def make_batch(uu, ii, tt, dst_nodes_, rng_, neg_ratio=1.0):
+        """与 ContraTGT 同难度：负样本为同 u、随机 i 从 dst_nodes 采样（非全节点随机）。"""
         n = len(uu)
         neg_n = int(n * neg_ratio)
-        neg_u = np.random.randint(0, num_nodes, neg_n)
-        neg_i = np.random.randint(0, num_nodes, neg_n)
-        all_u = np.concatenate([uu, neg_u])
+        neg_i = sample_neg_dst_same_u(ii, dst_nodes_, rng_)
+        all_u = np.concatenate([uu, uu])   # 负样本同 u
         all_i = np.concatenate([ii, neg_i])
         all_t = np.concatenate([tt, np.repeat(tt.max(), neg_n)])
         y = np.concatenate([np.ones(n), np.zeros(neg_n)]).astype(np.float32)
@@ -246,16 +249,20 @@ def run_tgat(edges_file, feature_file, data_name, code_root, split_by_ui=False,
             'Acc': accuracy_score(y_true, (prob >= 0.5).astype(int)),
         }
 
-    # 训练集带负样本
-    train_u, train_i, train_t, train_y = make_batch(u_tr, i_tr, t_tr, neg_ratio=1.0)
+    # 与 ContraTGT 公平一致：训练负采样用训练集目标节点；Val/Test 负采样用全量边目标节点（同一协议才能可比）
+    dst_nodes_train = get_dst_nodes(i_tr)
+    all_dst = np.unique(np.concatenate([i_tr, i_val, i_te]))
+    rng = np.random.default_rng(seed)
+    train_u, train_i, train_t, train_y = make_batch(u_tr, i_tr, t_tr, dst_nodes_train, rng, neg_ratio=1.0)
     n_train = len(train_y)
-    # Val/Test: 正 + 等量负
-    val_u = np.concatenate([u_val, np.random.randint(0, num_nodes, len(u_val))])
-    val_i = np.concatenate([i_val, np.random.randint(0, num_nodes, len(i_val))])
+    neg_i_val = sample_neg_dst_same_u(i_val, all_dst, rng)
+    val_u = np.concatenate([u_val, u_val])
+    val_i = np.concatenate([i_val, neg_i_val])
     val_t = np.concatenate([t_val, np.repeat(t_val.max(), len(t_val))])
     val_y = np.concatenate([np.ones(len(u_val)), np.zeros(len(u_val))]).astype(np.float32)
-    te_u = np.concatenate([u_te, np.random.randint(0, num_nodes, len(u_te))])
-    te_i = np.concatenate([i_te, np.random.randint(0, num_nodes, len(i_te))])
+    neg_i_te = sample_neg_dst_same_u(i_te, all_dst, rng)
+    te_u = np.concatenate([u_te, u_te])
+    te_i = np.concatenate([i_te, neg_i_te])
     te_t = np.concatenate([t_te, np.repeat(t_te.max(), len(t_te))])
     te_y = np.concatenate([np.ones(len(u_te)), np.zeros(len(u_te))]).astype(np.float32)
 
@@ -278,11 +285,12 @@ def run_tgat(edges_file, feature_file, data_name, code_root, split_by_ui=False,
     val_m = evaluate(val_u, val_i, val_t, val_y, batch_size)
     test_m = evaluate(te_u, te_i, te_t, te_y, batch_size)
 
-    # Inductive（Section V-B）：仅测试集中至少含一个“新节点”的边
+    # Inductive（Section V-B）：仅测试集中至少含一个“新节点”的边；负样本与 Val/Test 一致用 all_dst
     ind_mask = get_inductive_mask(u_tr, i_tr, u_te, i_te)
     if ind_mask.sum() > 0:
-        nn_u = np.concatenate([u_te[ind_mask], np.random.randint(0, num_nodes, ind_mask.sum())])
-        nn_i = np.concatenate([i_te[ind_mask], np.random.randint(0, num_nodes, ind_mask.sum())])
+        nn_neg_i = sample_neg_dst_same_u(i_te[ind_mask], all_dst, rng)
+        nn_u = np.concatenate([u_te[ind_mask], u_te[ind_mask]])
+        nn_i = np.concatenate([i_te[ind_mask], nn_neg_i])
         nn_t = np.concatenate([t_te[ind_mask], np.repeat(t_te.max(), ind_mask.sum())])
         nn_y = np.concatenate([np.ones(ind_mask.sum()), np.zeros(ind_mask.sum())]).astype(np.float32)
         nn_test_m = evaluate(nn_u, nn_i, nn_t, nn_y, batch_size)

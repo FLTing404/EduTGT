@@ -117,6 +117,35 @@ def split_edges_by_ratio(u, i, ts, train_ratio=0.1, val_ratio=0.1, test_ratio=0.
     )
 
 
+def get_dst_nodes(i_edges):
+    """
+    返回在边表中作为目标节点（i）出现过的节点集合。
+    用于 TGAT/GraphSAGE/JODIE 的训练与评估负样本：保证「同 u、随机 i」的 i 只从该集合里抽。
+    注意：为了公平对比，应该只使用训练集的节点（i_tr），而不是全量数据。
+    """
+    return np.unique(i_edges).astype(np.int64)
+
+
+def sample_neg_dst_same_u(i_pos, dst_nodes, rng):
+    """
+    对每条正边 (u, i_pos) 采样一个负目标 neg_i，满足 neg_i 来自 dst_nodes 且 neg_i != i_pos。
+    i_pos: (n,) 正边的目标节点；dst_nodes: 可选目标节点集合（通常来自 get_dst_nodes(i_full)）。
+    """
+    n = len(i_pos)
+    if len(dst_nodes) <= 1:
+        # 无法采样不同节点，退回 (i_pos + 1) % max 的简单做法
+        return (i_pos + 1) % (i_pos.max() + 2)
+    idx = rng.integers(0, len(dst_nodes), size=n)
+    neg = dst_nodes[idx]
+    for _ in range(20):
+        bad = neg == i_pos
+        if not bad.any():
+            break
+        idx[bad] = rng.integers(0, len(dst_nodes), size=bad.sum())
+        neg = dst_nodes[idx]
+    return neg
+
+
 def get_inductive_mask(u_train, i_train, u_test, i_test):
     """
     测试集中哪些边是 Inductive（至少一个端点在训练集中未出现）。

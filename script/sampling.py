@@ -183,18 +183,22 @@ def get_unique_node_sequence(b_edge, f_edge, k, idx_list, flag, idx_list_sorted=
         if last_event < row:
             edge_slice = f_edge_np[0:last_event]
             node, time = _edges_slice_to_node_time(edge_slice, ts, reverse=True)
-            L = len(node)
-            node_timestamp[i, 1:1 + L] = time
-            node_sequence[i, 1:1 + L] = node
-            node_seq_mask[i, 1:1 + L] = 1
+            # 修复：确保 node 和 time 长度一致，避免广播错误
+            L = min(len(node), len(time), k - 1)
+            if L > 0:
+                node_timestamp[i, 1:1 + L] = time[:L]
+                node_sequence[i, 1:1 + L] = node[:L]
+                node_seq_mask[i, 1:1 + L] = 1
         else:
             start = max(0, last_event - row)
             edge_slice = f_edge_np[start:last_event]
             node, time = _edges_slice_to_node_time(edge_slice, ts, reverse=True)
-            L = len(node)
-            node_timestamp[i, 1:1 + L] = time
-            node_sequence[i, 1:1 + L] = node
-            node_seq_mask[i, 1:1 + L] = 1
+            # 修复：确保 node 和 time 长度一致，避免广播错误
+            L = min(len(node), len(time), k - 1)
+            if L > 0:
+                node_timestamp[i, 1:1 + L] = time[:L]
+                node_sequence[i, 1:1 + L] = node[:L]
+                node_seq_mask[i, 1:1 + L] = 1
 
         node_timestamp[i, 0] = 0
         node_sequence[i, 0] = from_node

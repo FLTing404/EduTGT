@@ -40,6 +40,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--data_dir', type=str, required=True)
     parser.add_argument('--seed', type=int, default=42)
+    parser.add_argument('--ablation_suffix', type=str, default='', help='消融时与 pretrain 一致，如 baseline；配合 --seed 加载对应预训练')
     parser.add_argument('--mode', type=str, choices=['pure', 'contratgt'], required=True)
     parser.add_argument('--C', type=float, default=1.0, help='LogisticRegression 正则化')
     parser.add_argument('--output_dir', type=str, default=None)
@@ -58,7 +59,9 @@ def main():
         X_train, X_val, X_test = raw['X_train'], raw['X_val'], raw['X_test']
     else:
         import torch
-        pretrain_path = os.path.join(CODE_ROOT, 'script', 'pretrain_model', f'{data_name}.pth')
+        _ablation_sfx = getattr(args, 'ablation_suffix', '') or ''
+        _seed_sfx = ('_seed' + str(args.seed)) if _ablation_sfx else ''
+        pretrain_path = os.path.join(CODE_ROOT, 'script', 'pretrain_model', f'{data_name}{"_" + _ablation_sfx if _ablation_sfx else ""}{_seed_sfx}.pth')
         from utils import Dataset
         _, _, _, _, train_data, test_data, val_data, _, _ = Dataset(
             file=edges_file, split_by_ui=False, train_ratio=0.1, val_ratio=0.1, test_ratio=0.8, random_state=args.seed)
@@ -67,7 +70,7 @@ def main():
                           device=torch.device(f'cuda:{args.gpu}' if torch.cuda.is_available() else 'cpu'))
         X_train, X_val, X_test = out['X_train'], out['X_val'], out['X_test']
 
-    clf = LogisticRegression(C=args.C, max_iter=1000, random_state=args.seed)
+    clf = LogisticRegression(C=args.C, max_iter=1000, random_state=args.seed, class_weight='balanced')
     clf.fit(X_train, y_train)
 
     for name, X, y in [('Train', X_train, y_train), ('Val', X_val, y_val), ('Test', X_test, y_test)]:

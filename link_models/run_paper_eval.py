@@ -1,11 +1,11 @@
 """
 与论文 Section V-B 一致的评估：多 seed 运行并汇总 mean ± std。
 用法（在项目根 EduTGT 下）：
-  # 默认：跑当前支持的所有链路模型（ContraTGT + TGAT + GraphSAGE + TGN），并按 seeds 汇总
+  # 默认：跑当前支持的所有链路模型（EduTGT + TGAT + GraphSAGE + JODIE），并按 seeds 汇总
   python link_models/run_paper_eval.py --data_dir data_abc_0.01 --seeds 42,43,44,45,46
 
-  # 只跑部分方法（如仅 ContraTGT 和 TGAT）
-  python link_models/run_paper_eval.py --data_dir data_abc_0.01 --seeds 42 --methods contratgt,tgat
+  # 只跑部分方法（如仅 EduTGT 和 TGAT）
+  python link_models/run_paper_eval.py --data_dir data_abc_0.01 --seeds 42 --methods edutgt,tgat
 """
 import os
 import sys
@@ -20,11 +20,11 @@ CODE_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 def run_one(script_name, data_dir, seed, code_root):
     """运行单次，返回是否成功。"""
+    # 与 ContraTGT 及基线统一：按时间划分（quantile 0.1, 0.2），不传 --paper_eval
     cmd = [
         sys.executable,
         os.path.join(code_root, 'link_models', script_name),
         '--data_dir', data_dir,
-        '--paper_eval',
         '--seed', str(seed),
     ]
     ret = subprocess.run(cmd, cwd=code_root)
@@ -35,9 +35,9 @@ def main():
     parser = argparse.ArgumentParser(description='论文 Section V-B 评估：多 seed 运行并汇总 mean±std')
     parser.add_argument('--data_dir', type=str, required=True, help='如 data_abc_0.01')
     parser.add_argument('--seeds', type=str, default='42,43,44,45,46', help='逗号分隔的随机种子')
-    # 默认跑所有支持的方法：ContraTGT + TGAT + GraphSAGE + TGN
-    parser.add_argument('--methods', type=str, default='contratgt,tgat,graphsage,tgn',
-                        help='逗号分隔：contratgt,tgat,graphsage,tgn')
+    # 默认跑所有支持的方法：EduTGT + TGAT + GraphSAGE + JODIE
+    parser.add_argument('--methods', type=str, default='edutgt,tgat,graphsage,jodie',
+                        help='逗号分隔：edutgt,tgat,graphsage,jodie')
     parser.add_argument('--no_run', action='store_true', help='仅汇总已有 CSV，不重新跑')
     args = parser.parse_args()
 
@@ -48,12 +48,12 @@ def main():
     os.makedirs(result_dir, exist_ok=True)
 
     method_script = {
-        'contratgt': 'main_link.py',
+        'edutgt': 'main_link.py',
         'tgat': 'train_link_tgat.py',
         'graphsage': 'train_link_graphsage.py',
-        'tgn': 'train_link_tgn.py',
+        'jodie': 'train_link_jodie.py',
     }
-    method_tag = {'contratgt': 'contratgt', 'tgat': 'tgat', 'graphsage': 'graphsage', 'tgn': 'tgn'}
+    method_tag = {'edutgt': 'edutgt', 'tgat': 'tgat', 'graphsage': 'graphsage', 'jodie': 'jodie'}
 
     if not args.no_run:
         for method in methods:

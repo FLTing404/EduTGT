@@ -20,11 +20,11 @@ def get_args():
                         help='指定 data/all_data 下子目录名（项目根下），如 data_abc_0.01，将使用该目录下 ml_oulad.csv 与 oulad.content；指定后忽略 -d/--data')
 
     # general training hyper-parameters
-    parser.add_argument('--ctx_sample', type=int, default=40, help='spatial sampling')
-    parser.add_argument('--tmp_sample', type=int, default=31, help='temporal sampling')
-    parser.add_argument('--n_epoch', type=int, default=50, help='number of epochs')
+    parser.add_argument('--ctx_sample', type=int, default=30, help='spatial neighbor 长度 ls，论文建议 20~40')
+    parser.add_argument('--tmp_sample', type=int, default=21, help='temporal 序列长度 lt，论文建议 20~40')
+    parser.add_argument('--n_epoch', type=int, default=100, help='number of epochs (优化：从50增加到100)')
     parser.add_argument('--bs', type=int, default=800, help='batch_size')
-    parser.add_argument('--lr', type=float, default=1e-3, help='learning rate')
+    parser.add_argument('--lr', type=float, default=2e-3, help='learning rate (优化：从1e-3增加到2e-3，配合分层学习率)')
     parser.add_argument('--drop_out', type=float, default=0.2, help='dropout probability for all dropout layers')
     parser.add_argument('--tolerance', type=float, default=0,
                         help='tolerated marginal improvement for early stopper')
@@ -34,7 +34,18 @@ def get_args():
     parser.add_argument('--ngh_cache', action='store_true',
                         help='(currently not suggested due to overwhelming memory consumption) cache temporal neighbors previously calculated to speed up repeated lookup')
     parser.add_argument('--gpu', type=int, default=0, help='which gpu to use')
-    parser.add_argument('--aug_len', type=float, default=1.5, help='augmentation seq lenqth')
+    parser.add_argument('--aug_len', type=float, default=1.5, help='augmentation seq length')
+    parser.add_argument('--p_related', type=float, default=0.7, help='课程关系负采样用；主流程用 neg_sampler')
+    parser.add_argument('--alpha', type=float, default=0.35, help='预训练 consistency/diversity 中 diversity 权重，论文建议 small α（0.25~0.5）')
+    parser.add_argument('--top_k_steps', type=int, default=6, help='预训练每 batch 内 top_k 阶段内循环次数，减小可加速')
+    parser.add_argument('--model_steps', type=int, default=3, help='预训练每 batch 内 model 阶段内循环次数，减小可加速')
+    parser.add_argument('--no_topk', action='store_true', help='消融：关闭 Top_k 与双阶段，仅单阶段 BCE（ContraTGT baseline）')
+    parser.add_argument('--no_student_consistency', action='store_true', help='消融：关闭同学生时序一致性损失')
+    parser.add_argument('--neg_sampler', type=str, default='random', choices=['random', 'two_stage'],
+                        help='random=仅 RandEdgeSampler；two_stage=70%% random + 30%% hard（推荐稳定）')
+    parser.add_argument('--neg_hard_ratio', type=float, default=0.3, help='two_stage 时 hard 负样本比例，1-此为 random；0.2 更稳、更接近 test 分布')
+    parser.add_argument('--consistency_weight', type=float, default=0.1, help='同学生时序一致性损失权重，扩展配置可适当调低避免压过主损失')
+    parser.add_argument('--ablation_suffix', type=str, default='', help='消融保存后缀，如 baseline/neg/topk/consistency/all，模型存为 <data_name>_<suffix>.pth')
     parser.add_argument('--split_by_ui', action='store_true',
                         help='按 (u,i) 划分 train/val/test，与基线一致；默认按时间划分')
     parser.add_argument('--paper_eval', action='store_true',
@@ -115,7 +126,7 @@ class EarlyStopping:
     def save_checkpoint(self, val_ap, model):
         print('Validation ap increased (', self.last_best, ' --> ', val_ap, ').  Saving model ...')
         torch.save(model.state_dict(), self.path)
-        self.last_bast = val_ap
+        self.last_best = val_ap
 
 
 class Namespace(object):
@@ -281,6 +292,9 @@ def get_edges(s_idx,e_idx,edge):
 def init_seeds(seed):
     random.seed(seed)
     np.random.seed(seed)
+    torch.manual_seed(seed)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed_all(seed)
 
 class RandEdgeSampler(object):
     def __init__(self, dst_list):

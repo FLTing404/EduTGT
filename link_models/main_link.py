@@ -17,6 +17,7 @@ from sampling import *
 import scipy.sparse as sp
 import math
 import copy
+import numpy as np
 from model import  *
 from tqdm import tqdm
 import torch.optim as optim
@@ -30,13 +31,18 @@ LEARNING_RATE = args.lr
 device = torch.device('cuda:{}'.format(GPU))
 
 edges_file, feature_file, data_name = get_data_paths(args)
-# 链路预测默认按 ContraTGT 论文划分：按边随机 1:1:8，不按 (u,i)；可 --split_by_ui 或 --train_ratio 覆盖
+# 与 ContraTGT 及对比组统一：默认按时间划分（quantile 0.1, 0.2）；--paper_eval 时为按边随机 1:1:8
 if getattr(args, 'split_by_ui', False):
     train_ratio, val_ratio, test_ratio = None, getattr(args, 'val_ratio', 0.1), getattr(args, 'test_ratio', 0.2)
-else:
-    train_ratio = getattr(args, 'train_ratio', 0.1)
+elif getattr(args, 'paper_eval', False):
+    train_ratio, val_ratio, test_ratio = 0.1, 0.1, 0.8
+elif getattr(args, 'train_ratio', None) is not None:
+    train_ratio = args.train_ratio
     val_ratio = getattr(args, 'val_ratio', 0.1)
     test_ratio = getattr(args, 'test_ratio', 0.8)
+else:
+    train_ratio = None  # 默认：按时间划分（quantile 0.1, 0.2），与 ContraTGT 及基线统一
+    val_ratio, test_ratio = 0.1, 0.8
 edges, num_nodes, nodes_list, node_time, train_data, test_data, val_data, nn_test_data, nn_val_data = Dataset(
     file=edges_file, split_by_ui=getattr(args, 'split_by_ui', False),
     train_ratio=train_ratio, val_ratio=val_ratio, test_ratio=test_ratio, random_state=args.seed)
@@ -63,7 +69,12 @@ num_batch = math.ceil(num_instance / BATCH_SIZE)
 ctx_sample = args.ctx_sample
 tmp_sample = args.tmp_sample
 
-pretrain_path = os.path.join(CODE_ROOT, 'script', 'pretrain_model', f'{data_name}.pth')
+_ablation_sfx = getattr(args, 'ablation_suffix', '') or ''
+_seed = getattr(args, 'seed', 60)
+# 消融且多 seed 时预训练权重带 seed 后缀，与 pretrain.py 保存命名一致
+_seed_sfx = ('_seed' + str(_seed)) if _ablation_sfx else ''
+pretrain_path = os.path.join(CODE_ROOT, 'script', 'pretrain_model', f'{data_name}{"_" + _ablation_sfx if _ablation_sfx else ""}{_seed_sfx}.pth')
+# 训练负采样：仅用 RandEdgeSampler（与 ContraTGT 一致）；val/test 用全量边目标节点
 train_rand_sampler = RandEdgeSampler(train_data['idx'][:, 1])
 val_rand_sampler = RandEdgeSampler(edges['idx'][:, 1])
 test_rand_sampler = RandEdgeSampler(edges['idx'][:, 1])
@@ -71,16 +82,37 @@ test_rand_sampler = RandEdgeSampler(edges['idx'][:, 1])
 st_model = SpatialTemporal(in_dim=indim, out_dim=outdim, n_heads=nheads, dropout=dropout, N=N)
 st_model.load_state_dict(torch.load(pretrain_path))
 st_model = st_model.to(device)
-st_optimizer = optim.Adam(st_model.parameters(), lr=LEARNING_RATE, weight_decay=1e-5)
+
+# 优化：分层学习率 - 链接头用较大学习率，其他层用较小学习率（微调预训练模型）
+link_head_params = []
+backbone_params = []
+for name, param in st_model.named_parameters():
+    if 'affinity_score' in name or 'linear' in name:  # 链接预测头
+        link_head_params.append(param)
+    else:  # 预训练骨干网络
+        backbone_params.append(param)
+
+# 链接头用较大学习率，骨干网络用较小学习率（微调）
+st_optimizer = optim.Adam([
+    {'params': link_head_params, 'lr': LEARNING_RATE * 5.0, 'weight_decay': 1e-5},  # 链接头：5倍学习率
+    {'params': backbone_params, 'lr': LEARNING_RATE * 0.1, 'weight_decay': 1e-5}   # 骨干网络：0.1倍学习率（微调）
+])
+
+# 添加学习率调度器（在验证集性能不提升时降低学习率）
+scheduler = optim.lr_scheduler.ReduceLROnPlateau(
+    st_optimizer, mode='max', factor=0.5, patience=5, verbose=True, min_lr=1e-6
+)
+
 st_criterion = torch.nn.BCELoss()
 st_criterion_eval = torch.nn.BCELoss()
-early_stopping = EarlyStopping(dn=data_name, max_round=8, checkpoint_dir=os.path.join(CODE_ROOT, 'script', 'saved_checkpoints'))
-MODEL_SAVE_PATH = os.path.join(CODE_ROOT, 'script', 'saved_models', f'{data_name}.pth')
+_link_dn = f'{data_name}{"_" + _ablation_sfx if _ablation_sfx else ""}{_seed_sfx}'  # 消融多 seed 时链路 checkpoint 也按 seed 区分
+early_stopping = EarlyStopping(dn=_link_dn, max_round=3, checkpoint_dir=os.path.join(CODE_ROOT, 'script', 'saved_checkpoints'))
+MODEL_SAVE_PATH = os.path.join(CODE_ROOT, 'script', 'saved_models', f'{_link_dn}.pth')
 os.makedirs(os.path.join(CODE_ROOT, 'script', 'saved_models'), exist_ok=True)
 os.makedirs(os.path.join(CODE_ROOT, 'script', 'saved_checkpoints'), exist_ok=True)
 
-def eval_epoch(data, batch_size, model, ctx_sample, tmp_sample, rand_sampler):
-    init_seeds(60)
+def eval_epoch(data, batch_size, model, ctx_sample, tmp_sample, rand_sampler, eval_seed=None):
+    init_seeds(eval_seed if eval_seed is not None else args.seed)
     num_instance = len(data['idx'])
     loss, acc, ap, auc = [], [], [], []
     num_batch = math.ceil(num_instance / batch_size)
@@ -285,7 +317,7 @@ for m in range(1):
             to_seq_feature = time_encode(to_seq_fea, torch.tensor(to_ts)).to(device)
             to_node_seq_mask = torch.LongTensor(np.array(to_node_seq_mask)).to(device)
 
-            ############fake node spatial和temporalseq metric##############
+            ############fake node##############
             fake_node = train_rand_sampler.sample(node_sum)
             fake_con_node, fake_con_ts, fake_con_idx, fake_con_mask = get_neighbor_list(node_l, ts_l, idx_l, offset_l,
                                                                                         fake_node,
@@ -352,15 +384,18 @@ for m in range(1):
         print('epoch ', epoch, 'train_acc:', train_acc, 'train_ap:', train_ap, 'train_loss:', train_loss, 'train_auc:',
               train_auc)
         print('epoch ', epoch, 'val_acc:', val_acc, 'val_ap:', val_ap, 'val_loss:', val_loss, 'val_auc:', val_auc)
+        
+        # 优化：学习率调度（基于验证集AP）
+        scheduler.step(val_ap)
 
         if early_stopping(val_ap, st_model):
             print("Early stopping")
-            best_model_path = os.path.join(CODE_ROOT, 'script', 'saved_checkpoints', f'{data_name}.pth')
+            best_model_path = os.path.join(CODE_ROOT, 'script', 'saved_checkpoints', f'{_link_dn}.pth')
             st_model.load_state_dict(torch.load(best_model_path))
             torch.save(st_model.state_dict(), MODEL_SAVE_PATH)
             print("Loaded the best model at epoch {} for inference".format(early_stopping.best_epoch))
             break
-    best_model_path = os.path.join(CODE_ROOT, 'script', 'saved_checkpoints', f'{data_name}.pth')
+    best_model_path = os.path.join(CODE_ROOT, 'script', 'saved_checkpoints', f'{_link_dn}.pth')
     if os.path.exists(best_model_path):
         st_model.load_state_dict(torch.load(best_model_path))
 
@@ -380,6 +415,6 @@ for m in range(1):
         'Test_AUC': test_auc, 'Test_AP': test_ap, 'Test_Acc': test_acc, 'Test_Loss': test_loss,
         'NN_Test_AUC': nn_test_auc, 'NN_Test_AP': nn_test_ap, 'NN_Test_Acc': nn_test_acc, 'NN_Test_Loss': nn_test_loss,
     }
-    results_path = os.path.join(result_dir, f'link_contratgt_{data_name}.csv')
+    results_path = os.path.join(result_dir, f'link_edutgt_{data_name}.csv')
     pd.DataFrame([results]).to_csv(results_path, index=False)
     print(f"结果已保存: {results_path}")

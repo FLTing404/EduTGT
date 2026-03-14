@@ -1,1 +1,1 @@
-# 链路预测对比基线：TGN、TGAT、GraphSAGE
+# 链路预测对比基线：TGAT、GraphSAGE、JODIE

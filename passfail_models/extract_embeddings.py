@@ -1,5 +1,5 @@
 """
-预训练表示提取：加载 ContraTGT，对每条边前向得到 pair embedding，按 (u,i) 聚合成单向量与序列。
+预训练表示提取：加载 EduTGT 预训练模型，对每条边前向得到 pair embedding，按 (u,i) 聚合成单向量与序列。
 与 passfail_data 的 (u,i) 划分一致，严格按 train/val/test 边划分。
 """
 import os
@@ -251,6 +251,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--data_dir', type=str, default='data_abc_0.01')
     parser.add_argument('--seed', type=int, default=42)
+    parser.add_argument('--ablation_suffix', type=str, default='', help='消融时与 pretrain 命名一致，如 baseline；配合 --seed 加载 pretrain_model/<data>_<suffix>_seed<seed>.pth')
     parser.add_argument('--seq_max_len', type=int, default=64)
     parser.add_argument('--gpu', type=int, default=0)
     args = parser.parse_args()
@@ -258,7 +259,9 @@ if __name__ == '__main__':
         data_dir = args.data_dir
         gpu = args.gpu
     edges_file, feature_file, data_name = get_data_paths(A)
-    pretrain_path = os.path.join(CODE_ROOT, 'script', 'pretrain_model', f'{data_name}.pth')
+    _ablation_sfx = getattr(args, 'ablation_suffix', '') or ''
+    _seed_sfx = ('_seed' + str(args.seed)) if _ablation_sfx else ''
+    pretrain_path = os.path.join(CODE_ROOT, 'script', 'pretrain_model', f'{data_name}{"_" + _ablation_sfx if _ablation_sfx else ""}{_seed_sfx}.pth')
     train_ui, val_ui, test_ui, y_train, y_val, y_test, edge = get_ui_splits_and_labels(
         edges_file, random_state=args.seed)
     edge_ds, _, _, _, train_data, test_data, val_data, _, _ = Dataset(
@@ -269,7 +272,7 @@ if __name__ == '__main__':
     print('X_train', out['X_train'].shape, 'embed_dim', out['embed_dim'])
     out_dir = os.path.join(CODE_ROOT, 'result', 'passfail', data_name)
     os.makedirs(out_dir, exist_ok=True)
-    np.savez(os.path.join(out_dir, f'contratgt_emb_{data_name}_s{args.seed}.npz'),
+    np.savez(os.path.join(out_dir, f'edutgt_emb_{data_name}_s{args.seed}.npz'),
              X_train=out['X_train'], X_val=out['X_val'], X_test=out['X_test'],
              X_train_seq=np.array(out['X_train_seq']), X_val_seq=np.array(out['X_val_seq']), X_test_seq=np.array(out['X_test_seq']),
              seq_lengths_train=out['seq_lengths_train'], seq_lengths_val=out['seq_lengths_val'], seq_lengths_test=out['seq_lengths_test'])
