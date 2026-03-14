@@ -23,6 +23,8 @@ from collections import defaultdict
 import numpy as np
 
 args, sys_argv = get_args()
+# 与 pretrain/main_link 一致：同一 seed 保证数据划分与训练/评估可复现
+init_seeds(getattr(args, 'seed', 60))
 
 GPU = args.gpu
 DATA = args.data

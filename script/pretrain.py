@@ -29,6 +29,8 @@ def _sample_fake_node(node_sum, batch_data, train_rand_sampler, enhanced_sampler
     return out
 
 args, sys_argv = get_args()
+# 贯穿全流程的 seed：保证数据划分、负采样、模型初始化、dropout 等可复现
+init_seeds(getattr(args, 'seed', 60))
 
 # 脚本所在目录：过程性文件统一放在 code/script 下
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))

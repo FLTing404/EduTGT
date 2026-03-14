@@ -25,6 +25,8 @@ from sklearn.metrics import roc_auc_score, average_precision_score
 import random
 
 args, sys_argv = get_args()
+# 与 pretrain 一致：同一 seed 保证评估阶段负采样等可复现；训练阶段 dropout 等亦与 seed 一致
+init_seeds(getattr(args, 'seed', 60))
 
 GPU = args.gpu
 LEARNING_RATE = args.lr

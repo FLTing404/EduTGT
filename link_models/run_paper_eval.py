@@ -18,8 +18,25 @@ import numpy as np
 CODE_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 
-def run_one(script_name, data_dir, seed, code_root):
-    """运行单次，返回是否成功。"""
+# EduTGT 多 seed 时预训练按 seed 存盘，使用固定后缀 paper_eval，与消融的 baseline/neg 等区分
+PAPER_EVAL_ABLATION_SUFFIX = 'paper_eval'
+
+
+def run_pretrain(data_dir, seed, code_root):
+    """先跑预训练，供 edutgt 的 main_link 加载。带 ablation_suffix 以便按 seed 存为 <data>_paper_eval_seed<seed>.pth。"""
+    pretrain_script = os.path.join(code_root, 'script', 'pretrain.py')
+    cmd = [
+        sys.executable, pretrain_script,
+        '--data_dir', data_dir,
+        '--seed', str(seed),
+        '--ablation_suffix', PAPER_EVAL_ABLATION_SUFFIX,
+    ]
+    ret = subprocess.run(cmd, cwd=code_root)
+    return ret.returncode == 0
+
+
+def run_one(script_name, data_dir, seed, code_root, extra_args=None):
+    """运行单次，返回是否成功。extra_args 会追加到命令（如 edutgt 需 --ablation_suffix paper_eval）。"""
     # 与 ContraTGT 及基线统一：按时间划分（quantile 0.1, 0.2），不传 --paper_eval
     cmd = [
         sys.executable,
@@ -27,6 +44,8 @@ def run_one(script_name, data_dir, seed, code_root):
         '--data_dir', data_dir,
         '--seed', str(seed),
     ]
+    if extra_args:
+        cmd.extend(extra_args)
     ret = subprocess.run(cmd, cwd=code_root)
     return ret.returncode == 0
 
@@ -62,10 +81,19 @@ def main():
                 continue
             tag = method_tag.get(method, method)
             for seed in seeds:
-                print(f"运行 {method} seed={seed} ...")
-                ok = run_one(script_name, args.data_dir, seed, CODE_ROOT)
-                if not ok:
-                    print(f"  warning: {method} seed={seed} 返回非 0")
+                if method == 'edutgt':
+                    # EduTGT 需先预训练再链路；预训练按 seed 存为 <data>_paper_eval_seed<seed>.pth，main_link 用同一 suffix+seed 加载
+                    print(f"运行 {method} seed={seed}（先预训练再链路）...")
+                    if not run_pretrain(args.data_dir, seed, CODE_ROOT):
+                        print(f"  warning: edutgt 预训练 seed={seed} 返回非 0")
+                    if not run_one(script_name, args.data_dir, seed, CODE_ROOT,
+                                   extra_args=['--ablation_suffix', PAPER_EVAL_ABLATION_SUFFIX]):
+                        print(f"  warning: {method} seed={seed} 返回非 0")
+                else:
+                    print(f"运行 {method} seed={seed} ...")
+                    ok = run_one(script_name, args.data_dir, seed, CODE_ROOT)
+                    if not ok:
+                        print(f"  warning: {method} seed={seed} 返回非 0")
                 src = os.path.join(result_dir, f'link_{tag}_{data_name}.csv')
                 dst = os.path.join(result_dir, f'link_{tag}_{data_name}_s{seed}.csv')
                 if os.path.exists(src):

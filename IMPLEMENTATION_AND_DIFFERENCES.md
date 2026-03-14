@@ -83,7 +83,7 @@
 - **负采样**：训练**仅 RandEdgeSampler**（`script/utils.py`），与 ContraTGT 一致；**链路训练同样仅 RandEdgeSampler**。
 - **Top_k 与多损失**：`script/model.py`（`Top_k` 类）、`script/pretrain.py` 中 Top_k 阶段与 model 阶段的损失（一致性、多样性、对比）；同学生时序一致性在 model 阶段按 batch 内学生分组做方差正则；`--no_topk` / `--no_student_consistency` 可关闭对应部分。
 - **预训练入口**：`script/pretrain.py`（数据加载、划分、仅 RandEdgeSampler、训练循环；`--ablation_suffix` 时保存带后缀；多 seed 消融时路径带 `_seed<seed>`，与下游加载约定一致）。
-- **消融**：`script/run_ablation.py` 一键跑 5 种配置 + TGAT/GraphSAGE/JODIE；`--seeds 42,43,...` 时每 seed 跑一轮并写 `result/link/<data_name>/ablation_results_seed_<seed>.csv`，最后写 `ablation_summary_<data_name>.csv`（Mean_AUC, Std_AUC 及各 seed 列）。
+- **消融**：`link_models/run_ablation.py` 一键跑 5 种配置 + TGAT/GraphSAGE/JODIE；`--seeds 42,43,...` 时每 seed 跑一轮并写 `result/link/<data_name>/ablation_results_seed_<seed>.csv`，最后写 `ablation_summary_<data_name>.csv`（Mean_AUC, Std_AUC 及各 seed 列）。
 - **链路**：`link_models/main_link.py`（加载预训练、全模型微调、仅 RandEdgeSampler；`--ablation_suffix` + `--seed` 时加载/保存带 seed 的路径）、`link_models/data_utils.py`（与 script 对齐的划分与负采样）。
 - **通过/不通过**：`passfail_models/main_passfail.py`（支持 `--ablation_suffix` + `--seed` 加载对应预训练，自身 checkpoint 也按 seed 区分）、`passfail_data.py`、`extract_embeddings.py`（支持 `--ablation_suffix` + `--seed`）、`train_logistic.py` / `train_lstm.py`（`mode=contratgt` 时支持 `--ablation_suffix` + `--seed`），以及各脚本中的 pos_weight/class_weight 处理。
 
@@ -139,8 +139,47 @@
 
 ---
 
-## 五、超参与消融
+## 五、Seed 贯穿逻辑（科研复现）
+
+为满足论文级可复现与多 seed 报告 mean±std，**同一 seed 必须贯穿**：预训练 → 链路（或通过/不通过）→ 评估；且不同 seed 之间**仅随机性不同**，数据划分/协议一致。
+
+### 5.1 谁提供 seed
+
+| 脚本/入口 | 种子来源 | 默认值 |
+|-----------|----------|--------|
+| script/pretrain.py | `get_args()`（script/utils）的 `--seed` | 60 |
+| link_models/main_link.py | 同上 | 60 |
+| passfail_models/main_passfail.py | 同上 | 60 |
+| TGAT/GraphSAGE/JODIE | 各自脚本的 `--seed` | 42 |
+| link_models/run_ablation.py | 单次：未传则注入 `--seed 60`；多 seed：`--seeds` 每轮注入当前 seed | 60 / 用户指定 |
+| link_models/run_paper_eval.py | 每轮传入当前 `--seed`（edutgt 先 pretrain 再 main_link，同一 seed） | 42,43,44,45,46 |
+
+### 5.2 何处使用 seed（贯穿链）
+
+- **预训练（pretrain.py）**：脚本开头 `init_seeds(seed)`（random / numpy / torch / CUDA）；`Dataset(..., random_state=seed)` 决定 train/val/test 划分；`EnhancedNegSampler(..., seed=seed)`（若有）；保存路径在有 `--ablation_suffix` 时带 `_seed<seed>`，如 `<data>_baseline_seed42.pth` 或 `<data>_paper_eval_seed42.pth`。
+- **链路（main_link.py）**：开头 `init_seeds(seed)`；`Dataset(..., random_state=args.seed)`；加载预训练时路径与 pretrain 约定一致（`--ablation_suffix` + `--seed` → `_<suffix>_seed<seed>.pth`）；`eval_epoch` 内评估前再次 `init_seeds(seed)` 保证 Val/Test 负采样可复现。
+- **通过/不通过（main_passfail.py）**：开头 `init_seeds(seed)`；`Dataset(..., random_state=args.seed)`；加载预训练路径同上；eval/collect 内 `init_seeds(seed)`。
+- **基线（TGAT/GraphSAGE/JODIE）**：脚本内 `torch.manual_seed(seed)`、`np.random.seed(seed)`，划分与负采样均传入同一 seed。
+
+### 5.3 两套多 seed 流程（无逻辑冲突）
+
+1. **run_ablation.py（消融 + 三基线）**  
+   - 单次：不传 `--seed` 时自动注入 `60`，pretrain / main_link / 三基线均收到 `--seed 60`。  
+   - 多 seed：`--seeds 42,43,...`，每轮 base 带 `--seed <s>`，先跑 5 种消融（每种 pretrain(s)→main_link(s)），再跑 3 基线(s)。同一 seed 下预训练与链路一一对应，权重按 `<data>_<suffix>_seed<seed>.pth` 存/读。  
+2. **run_paper_eval.py（论文 Table 多 seed 汇总）**  
+   - 仅链路：对每个 seed 先 `pretrain --ablation_suffix paper_eval --seed <s>`（存 `<data>_paper_eval_seed<s>.pth`），再 `main_link --ablation_suffix paper_eval --seed <s>`（读同一文件）；TGAT/GraphSAGE/JODIE 仅 `--seed <s>`。  
+   - 预训练按 seed 存盘，不与消融的 baseline/neg 等混用；汇总时用各 seed 的 CSV 算 mean±std。
+
+### 5.4 科研角度的合理性
+
+- **单 seed 可复现**：同一命令（含 `--seed`）多次运行，数据划分、模型初始化、训练/评估中的随机性一致（init_seeds 覆盖 random/numpy/torch/cuda）。  
+- **多 seed 独立**：每个 seed 对应一次独立的「预训练→下游→评估」链，无跨 seed 泄露；报告 mean±std 时各 seed 等价于独立重复实验。  
+- **消融与 paper_eval 隔离**：消融用 `baseline/neg/topk/...` 后缀，paper_eval 用 `paper_eval` 后缀，预训练权重与下游加载路径一一对应，无混用或覆盖错误。
+
+---
+
+## 六、超参与消融
 
 - **超参建议**（论文/实践）：`ctx_sample` / `tmp_sample`（ls, lt）建议 20~40，默认 30/21；`alpha`（diversity 权重）建议 0.25~0.5，默认 0.35（consistency > diversity）；embedding 维度 128 或 256；masking ratio ρ∈[0.25,0.5] 时较稳定。
-- **消融**：`python script/run_ablation.py --data_dir <dir>` 一键跑 5 种配置 + TGAT/GraphSAGE/JODIE，汇总 Test AUC。单次运行可用 `--seed 60` 统一种子；**多 seed** 用 `--seeds 42,43,44,45,46`，每 seed 跑一轮，写入 `result/link/<data_name>/ablation_results_seed_<seed>.csv`，最后生成 `ablation_summary_<data_name>.csv`（Mean_AUC, Std_AUC 及各 seed 列），便于论文报告 mean±std。单次预训练或链路用 `--ablation_suffix <name>`（及多 seed 时 `--seed <s>`）指定保存/加载的权重文件名。
+- **消融**：`python link_models/run_ablation.py --data_dir <dir>` 一键跑 5 种配置 + TGAT/GraphSAGE/JODIE，汇总 Test AUC。单次运行可用 `--seed 60` 统一种子；**多 seed** 用 `--seeds 42,43,44,45,46`，每 seed 跑一轮，写入 `result/link/<data_name>/ablation_results_seed_<seed>.csv`，最后生成 `ablation_summary_<data_name>.csv`（Mean_AUC, Std_AUC 及各 seed 列），便于论文报告 mean±std。单次预训练或链路用 `--ablation_suffix <name>`（及多 seed 时 `--seed <s>`）指定保存/加载的权重文件名。
 - **下游按 seed 加载**：消融多 seed 后，预训练权重为 `script/pretrain_model/<data_name>_<suffix>_seed<seed>.pth`。main_link、main_passfail、extract_embeddings、train_logistic、train_lstm 均支持 `--ablation_suffix` + `--seed` 加载对应权重；通过/不通过可用指定 seed 的预训练做课程级评估（见 README 4.3）。

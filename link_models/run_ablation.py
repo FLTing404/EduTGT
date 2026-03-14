@@ -1,6 +1,6 @@
 """
 一键消融 + 三基线：5 种消融配置 + TGAT / GraphSAGE / JODIE。
-从项目根运行: python script/run_ablation.py [--data_dir xxx] [--seed 60] [--seeds 42,43,44,45,46] [--quick]
+从项目根运行: python link_models/run_ablation.py [--data_dir xxx] [--seed 60] [--seeds 42,43,44,45,46] [--quick]
 单次：--seed 可统一 pretrain/main_link/基线 的随机种子。多 seed：--seeds 跑多轮并输出带 seed 的结果文件与汇总表（Mean_AUC, Std_AUC）。
 """
 import os
@@ -199,7 +199,7 @@ def main():
         base = base + ['--seed', '60']
     data_name = _get_data_name()
     python = sys.executable
-    pretrain_script = os.path.join(SCRIPT_DIR, 'pretrain.py')
+    pretrain_script = os.path.join(CODE_ROOT, 'script', 'pretrain.py')
     main_link_script = os.path.join(CODE_ROOT, 'link_models', 'main_link.py')
 
     if seeds is None:

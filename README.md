@@ -30,7 +30,6 @@ EduTGT/
 │       └── ...
 ├── script/                          # 预训练（ContraTGT 扩展版）
 │   ├── pretrain.py                  # 预训练入口（训练用 RandEdgeSampler + Top_k + 同学生一致性）
-│   ├── run_ablation.py              # 一键消融 + 三基线：5 种配置 + TGAT/GraphSAGE/JODIE
 │   ├── negative_sampling.py         # 增强负采样（消融用）：伪模块、时序共现、度感知
 │   ├── utils.py                     # 参数、路径、Dataset、EarlyStopping
 │   ├── sampling.py                  # 时空邻居、交互序列（neighbor_ts < current_ts）
@@ -45,6 +44,7 @@ EduTGT/
 │   ├── train_link_tgat.py           # TGAT 基线
 │   ├── train_link_graphsage.py      # GraphSAGE 基线
 │   ├── train_link_jodie.py         # JODIE 基线（KDD 2019，时序嵌入更新）
+│   ├── run_ablation.py              # 一键消融 + 三基线：5 种配置 + TGAT/GraphSAGE/JODIE
 │   └── run_paper_eval.py            # 多 seed 一键评估并汇总
 ├── passfail_models/                  # 课程通过/不通过
 │   ├── main_passfail.py             # EduTGT + MLP 头（课程级，含 NN_Test）
@@ -164,14 +164,14 @@ python link_models/run_paper_eval.py --data_dir data_abc_0.01 --seeds 42,43,44,4
 
 ```bash
 # 从项目根运行；会依次：预训练(各配置) → EduTGT 链路 → TGAT → GraphSAGE → JODIE → 汇总打印 AUC 表
-python script/run_ablation.py --data_dir data_abc_0.01
+python link_models/run_ablation.py --data_dir data_abc_0.01
 
 # 单次运行：不传 --seed 时 run_ablation 会自动注入 --seed 60，使预训练/链路/三基线统一用同一 seed；也可显式指定 --seed 60
-python script/run_ablation.py --data_dir data_abc_0.01
-python script/run_ablation.py --data_dir data_abc_0.01 --seed 60
+python link_models/run_ablation.py --data_dir data_abc_0.01
+python link_models/run_ablation.py --data_dir data_abc_0.01 --seed 60
 
 # 多 seed 跑 5 次并输出带 seed 的结果文件 + 汇总表（论文用 mean±std）
-python script/run_ablation.py --data_dir data_abc_0.01 --seeds 42,43,44,45,46
+python link_models/run_ablation.py --data_dir data_abc_0.01 --seeds 42,43,44,45,46
 # 结果：result/link/<data_name>/ablation_results_seed_42.csv … ablation_results_seed_46.csv，以及 ablation_summary_<data_name>.csv（含 Mean_AUC, Std_AUC）
 
 # 可选：-d slashdot（公共数据集）；--quick 仅 2 epoch 快速试跑
@@ -210,7 +210,7 @@ python passfail_models/train_lstm.py --data_dir data_abc_0.01 --mode pure
 python passfail_models/train_lstm.py --data_dir data_abc_0.01 --mode contratgt
 ```
 
-**消融 / 多 seed 时按 seed 加载预训练**：若已用 `run_ablation.py --seeds 42,43,...` 跑过消融，预训练权重按 seed 存为 `script/pretrain_model/<data_name>_<ablation_suffix>_seed<seed>.pth`。通过/不通过下游可指定同一份权重做课程级评估：
+**消融 / 多 seed 时按 seed 加载预训练**：若已用 `link_models/run_ablation.py --seeds 42,43,...` 跑过消融，预训练权重按 seed 存为 `script/pretrain_model/<data_name>_<ablation_suffix>_seed<seed>.pth`。通过/不通过下游可指定同一份权重做课程级评估：
 
 - **main_passfail.py**：支持 `--ablation_suffix` + `--seed`，加载上述预训练路径；自身 checkpoint / saved_models 也按 `<data_name>_<ablation_suffix>_seed<seed>.pth` 保存，多 seed 不互相覆盖。
 - **extract_embeddings.py**：增加 `--ablation_suffix`，与 `--seed` 一起拼出预训练路径，提取的表示可给 Logistic/LSTM 用。
@@ -236,7 +236,7 @@ python passfail_models/train_lstm.py --data_dir data_abc_0.01 --mode contratgt -
 | **data/convert_oulad.py** | 读 OULAD 七张表，建学生/课程节点与边（时间、通过/不通过标签），生成节点特征，输出 `ml_oulad.csv` + `oulad.content`。 |
 | **data/convert_oulad_abc.py** | 按模块筛选后复用 convert_oulad 逻辑，输出到 `data_abc_*`。 |
 | **script/pretrain.py** | 在训练边上做对比预训练：正边 vs 负样本边；训练**仅 RandEdgeSampler**（与 ContraTGT 一致）；含 **Top_k + mid_model**、双阶段训练、**同学生时序一致性**；`--no_topk`/`--no_student_consistency`/`--ablation_suffix` 做消融。 |
-| **script/run_ablation.py** | 一键消融 + 三基线：5 种消融（预训练→链路） + TGAT/GraphSAGE/JODIE，汇总打印 Test AUC 表。 |
+| **link_models/run_ablation.py** | 一键消融 + 三基线：5 种消融（预训练→链路） + TGAT/GraphSAGE/JODIE，汇总打印 Test AUC 表。 |
 | **script/negative_sampling.py** | 增强负采样（消融用）：伪模块（Jaccard）、时序共现、度感知；`EnhancedNegSampler`。 |
 | **script/utils.py** | `get_args`、`get_data_paths`、`Dataset`（按边比/按时间/按 (u,i)）、EarlyStopping。 |
 | **script/sampling.py** | `get_adj_list`、`init_offset`、`get_neighbor_list`、`get_unique_node_sequence`。 |
@@ -271,7 +271,7 @@ python passfail_models/train_lstm.py --data_dir data_abc_0.01 --mode contratgt -
 
 ## 八、调参与注意
 
-- **Seed 约定**：pretrain/main_link/main_passfail 使用 `script/utils` 的 `--seed`（默认 60）；TGAT/GraphSAGE/JODIE 脚本默认 42。**run_ablation 单次运行**时若未传 `--seed` 会自动注入 60，保证预训练、链路、三基线同一 seed。可复现性：`init_seeds(seed)` 会设置 random、numpy、torch 及 CUDA 种子；若需严格可复现可另设 `torch.backends.cudnn.deterministic=True`（可能略降速）。
+- **Seed 约定**：pretrain/main_link/main_passfail 使用 `script/utils` 的 `--seed`（默认 60），且**脚本开头统一调用 `init_seeds(seed)`**，保证数据划分、训练、评估可复现；TGAT/GraphSAGE/JODIE 默认 42。**run_ablation 单次**未传 `--seed` 时自动注入 60；**run_paper_eval** 的 EduTGT 预训练按 seed 存为 `<data>_paper_eval_seed<seed>.pth`，与消融权重隔离。完整贯穿逻辑见 **IMPLEMENTATION_AND_DIFFERENCES.md 五、Seed 贯穿逻辑**。
 - **预训练**：可调 `--n_epoch`、`--ctx_sample`（建议 20~40）、`--tmp_sample`（建议 20~40）、`--alpha`（建议 0.25~0.5）、`--aug_len`；`--top_k_steps`、`--model_steps` 减小可加速。训练负采样**仅 RandEdgeSampler**（与 ContraTGT 一致）。
 - **链路**：默认按时间划分；若需与「按边随机 1:1:8」的论文设置一致，请加 `--paper_eval`。`run_paper_eval.py` 默认不传 `--paper_eval`，即全部按时间划分。
 - **通过/不通过**：基线已使用 pos_weight/class_weight 缓解类别不平衡；若仍过拟合可减小 epoch 或加强正则。
