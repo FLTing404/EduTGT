@@ -89,7 +89,7 @@ ABLATION_CONFIGS = [
     ('topk', ['--no_student_consistency', '--ablation_suffix', 'topk',
               '--alpha', '0.25', '--n_epoch', '90'], '+ Top_k + mid_model (α=0.25, 90 epoch)'),
     ('consistency', ['--no_topk', '--ablation_suffix', 'consistency',
-                     '--n_epoch', '90', '--consistency_weight', '0.15'], '+ student consistency (90 epoch, λ=0.15)'),
+                     '--n_epoch', '90', '--consistency_weight', '0.10'], '+ student consistency (90 epoch, λ=0.10，降权以减方差)'),
     ('neg_consistency', ['--no_topk', '--neg_sampler', 'two_stage', '--ablation_suffix', 'neg_consistency',
                          '--n_epoch', '95', '--neg_hard_ratio', '0.2', '--consistency_weight', '0.12'],
      '+ neg + consistency (95 epoch, 80/20 neg, λ=0.12)'),

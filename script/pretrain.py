@@ -420,14 +420,17 @@ for epoch in tqdm(range(n_epoch)):
                 src_embed = model.getEmbed(con_src_feature, temp_src_feature, con_src_mask, temp_src_mask)
                 batch_u_np = batch_data['idx'][:, 0].numpy() if hasattr(batch_data['idx'][:, 0], 'numpy') else np.array(batch_data['idx'][:, 0])
                 consistency_loss = torch.tensor(0.0, device=device)
+                num_groups = 0  # 同 batch 内出现 2+ 次的学生数，用于稳定 scale、降低 seed 方差
                 for u in np.unique(batch_u_np):
                     idx_u = np.where(batch_u_np == u)[0]
                     if len(idx_u) > 1:
                         emb_u = src_embed[idx_u]
                         mean_u = emb_u.mean(dim=0)
                         consistency_loss = consistency_loss + (emb_u - mean_u).pow(2).sum()
-                if consistency_loss.item() > 0:
-                    loss = loss + consistency_weight * consistency_loss / max(1, node_sum)
+                        num_groups += 1
+                if consistency_loss.item() > 0 and num_groups > 0:
+                    # 按「学生组」归一化，避免 batch 内组数波动导致梯度尺度不稳定（降低 consistency 单独开时的高方差）
+                    loss = loss + consistency_weight * (consistency_loss / num_groups)
             loss.backward()
             optimizer.step()
             train_loss.append(loss.item())

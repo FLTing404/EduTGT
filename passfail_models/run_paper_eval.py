@@ -1,10 +1,15 @@
 """
 方案 A：全程按边 1:1:8，多 seed 运行六种方法并汇总 mean±std。
 六种：EduTGT+MLP、纯 MLP、EduTGT+Logistic、纯 Logistic、EduTGT+LSTM、纯 LSTM。
-前提：已先运行 script/pretrain.py 生成对应数据集的预训练权重。
+前提：已先运行 script/pretrain.py（或 link_models/run_ablation.py）生成对应数据集的预训练权重。
 
 用法（在项目根 EduTGT 下）：
+  # 无消融后缀时加载 script/pretrain_model/<data_name>.pth（需事先单独 pretrain）
   python passfail_models/run_paper_eval.py --data_dir data_abc_0.01 --seeds 42,43,44,45,46
+
+  # 复用 run_ablation 的预训练：指定 --ablation_suffix，每个 seed 加载 <data>_<suffix>_seed<seed>.pth（跑 5 个 seed）
+  python passfail_models/run_paper_eval.py --data_dir data_0.01 --seeds 42,43,44,45,46 --ablation_suffix baseline
+
   python passfail_models/run_paper_eval.py --data_dir data_abc_0.01 --seeds 42 --methods edutgt,logistic_pure,logistic_contratgt
   python passfail_models/run_paper_eval.py --data_dir data_abc_0.01 --no_run
 """
@@ -31,6 +36,9 @@ METHOD_CONFIG = {
 
 DEFAULT_METHODS = 'edutgt,mlp_pure,logistic_pure,logistic_contratgt,lstm_pure,lstm_contratgt'
 
+# 需要加载预训练权重的方法（传 --ablation_suffix 时加载 <data>_<suffix>_seed<seed>.pth）
+METHODS_USE_PRETRAIN = {'edutgt', 'logistic_contratgt', 'lstm_contratgt'}
+
 
 def run_one(script_name, data_dir, seed, code_root, extra_args=None):
     """运行单个脚本一次，返回是否成功。"""
@@ -52,6 +60,8 @@ def main():
     parser.add_argument('--seeds', type=str, default='42,43,44,45,46', help='逗号分隔的随机种子')
     parser.add_argument('--methods', type=str, default=DEFAULT_METHODS,
                         help='逗号分隔，默认六种：edutgt,mlp_pure,logistic_pure,logistic_contratgt,lstm_pure,lstm_contratgt')
+    parser.add_argument('--ablation_suffix', type=str, default='',
+                        help='消融预训练后缀，如 baseline/neg/topk；指定后 edutgt/logistic_contratgt/lstm_contratgt 加载 script/pretrain_model/<data>_<suffix>_seed<seed>.pth，与 run_ablation 产出一致')
     parser.add_argument('--no_run', action='store_true', help='仅汇总已有 CSV，不重新跑')
     args = parser.parse_args()
 
@@ -66,10 +76,13 @@ def main():
             cfg = METHOD_CONFIG.get(method)
             if not cfg:
                 continue
-            script_name, extra_args, out_prefix = cfg
+            script_name, base_extra, out_prefix = cfg
             for seed in seeds:
+                extra_args = list(base_extra)
+                if (args.ablation_suffix or '').strip() and method in METHODS_USE_PRETRAIN:
+                    extra_args.extend(['--ablation_suffix', args.ablation_suffix.strip()])
                 print(f"运行 {method} seed={seed} ...")
-                ok = run_one(script_name, args.data_dir, seed, CODE_ROOT, extra_args)
+                ok = run_one(script_name, args.data_dir, seed, CODE_ROOT, extra_args if extra_args else None)
                 if not ok:
                     print(f"  warning: {method} seed={seed} 返回非 0")
                 # 脚本写出的文件名（如 edutgt_{data_name}.csv 或 logistic_pure_{data_name}.csv）
