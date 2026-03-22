@@ -1,0 +1,3 @@
+# Baseline 子模块额外依赖（TGN 使用 PyG 中与 twitter-research/TGN 论文一致的实现）
+# 安装：pip install -r baseline/requirements-baseline.txt
+torch-geometric>=2.4.0

@@ -1,61 +1,51 @@
-*.csv
-# Python
+# ---------- 大数据与训练产物（勿提交 GitHub）----------
+# 原始与预处理数据（含 OULAD）
+data/
+
+# 主仓库训练输出（保留说明文档）
+outputs/*
+!outputs/README.md
+
+# 下游子目录内生成数据与权重（保留 .gitkeep 占位）
+downstream_pass_prediction/data/*
+!downstream_pass_prediction/data/.gitkeep
+downstream_pass_prediction/outputs/*
+!downstream_pass_prediction/outputs/.gitkeep
+
+# Baseline 跑分输出（json/csv）
+baseline/results/
+
+# PyTorch 权重 / 检查点（体积大）
+*.pth
+*.pt
+*.ckpt
+
+# ---------- Python ----------
 __pycache__/
 *.py[cod]
 *$py.class
-*.so
 .Python
-env/
+.venv/
 venv/
-ENV/
-build/
-develop-eggs/
-dist/
-downloads/
-eggs/
-.eggs/
-lib/
-lib64/
-parts/
-sdist/
-var/
-wheels/
+env/
 *.egg-info/
-.installed.cfg
+.eggs/
+dist/
+build/
 *.egg
 
-# IDE
+# ---------- 环境 / 密钥 ----------
+.env
+.env.*
+*.pem
+
+# ---------- IDE / 系统 ----------
 .idea/
 .vscode/
 *.swp
 *.swo
-*~
-
-# Jupyter Notebook
-.ipynb_checkpoints
-
-# 模型和检查点文件
-*.pth
-*.pt
-*.ckpt
-*.h5
-*.pkl
-*.model
-
-# 数据文件（大文件，不推送到远程）
-*.csv
-# 原始 OULAD 数据体积大，请自行下载到 data/OULAD_rawdata/，不纳入版本控制
-data/OULAD_rawdata/
-
-# 日志文件
-*.log
-
-# 临时文件
-*.tmp
-*.temp
 .DS_Store
 Thumbs.db
 
-# 参考用（不纳入版本控制）
-ContraTGT/
-
+# ---------- Jupyter ----------
+.ipynb_checkpoints/

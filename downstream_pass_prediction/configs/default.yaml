@@ -1,0 +1,18 @@
+raw_oulad: data/raw/OULAD
+
+# SpatialTemporal 通过预测（E1/E2），与 main.py 量级对齐
+st:
+  ctx_sample: 40
+  tmp_sample: 31
+  out_dim: 128
+  n_heads: 4
+  N: 2
+  drop_out: 0.2
+  lr: 0.0001
+  weight_decay: 0.00001
+  batch_size: 32
+
+# 早期预警：相对日截断（含该日）；null 表示不截断
+t_star_relative_day: null
+
+seed: 60
