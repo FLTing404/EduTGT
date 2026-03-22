@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 临时批量实验辅助脚本（不改业务代码）：
-  对选定数据集（AAA / BBB）依次跑 main、两个消融、三个 baseline，每种组合可指定多个 seed，
+  对选定整模块数据集（AAA…GGG）依次跑 main、两个消融、三个 baseline，每种组合可指定多个 seed，
   将指标汇总到 outputs/result/ 下的 CSV。
 
 说明（务必阅读）：
@@ -12,6 +12,8 @@
 用法（在 EduTGT/EduTGT 下）:
   python run_batch_metrics_csv.py --dataset AAA
   python run_batch_metrics_csv.py --dataset BBB --seeds 42,1,2 --device cpu
+  python run_batch_metrics_csv.py --dataset CCC
+  python run_batch_metrics_csv.py --dataset GGG --device cpu
 
 详细说明见文档: docs/run_batch_metrics_csv.md
 """
@@ -32,6 +34,9 @@ from typing import Any, Dict, List, Optional, Tuple
 ROOT = Path(__file__).resolve().parent
 RESULT_DIR = ROOT / "outputs" / "result"
 JSONL_PATH = ROOT / "outputs" / "logs" / "training_runs.jsonl"
+
+# 与 data/scripts/preprocess_oulad_for_contratgt.py 整模块名一致
+DATASET_MODULES = ("AAA", "BBB", "CCC", "DDD", "EEE", "FFF", "GGG")
 
 CSV_FIELDS = [
     "dataset",
@@ -172,7 +177,13 @@ def _run(
 
 def main() -> None:
     p = argparse.ArgumentParser(description="批量跑 main/消融/baseline 并写 CSV（不跑预训练）")
-    p.add_argument("--dataset", type=str, required=True, choices=("AAA", "BBB"), help="整模块 data_AAA 或 data_BBB")
+    p.add_argument(
+        "--dataset",
+        type=str,
+        required=True,
+        choices=DATASET_MODULES,
+        help="整模块 code_module，对应 data/processed/data_<AAA|BBB|…|GGG>",
+    )
     p.add_argument("--seeds", type=str, default="42,1,2", help="逗号分隔，如 42,1,2")
     p.add_argument("--n_epoch", type=int, default=50)
     p.add_argument("--bs", type=int, default=800)

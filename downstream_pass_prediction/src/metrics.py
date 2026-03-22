@@ -10,6 +10,7 @@ try:
         accuracy_score,
         auc as sk_auc,
         average_precision_score,
+        f1_score,
         roc_auc_score,
         roc_curve,
     )
@@ -17,6 +18,7 @@ except ImportError:
     roc_auc_score = None  # type: ignore
     average_precision_score = None  # type: ignore
     accuracy_score = None  # type: ignore
+    f1_score = None  # type: ignore
     roc_curve = None  # type: ignore
     sk_auc = None  # type: ignore
 
@@ -42,9 +44,11 @@ def binary_metrics(
         "acc": binary_accuracy(y_true, y_score, threshold=acc_threshold),
         "acc_threshold": float(acc_threshold),
     }
+    y_pred = (y_score >= acc_threshold).astype(np.int32)
     if len(np.unique(y_true)) < 2:
         out["auroc"] = float("nan")
         out["auprc"] = float("nan")
+        out["f1"] = float("nan")
         return out
     if roc_auc_score is not None:
         out["auroc"] = float(roc_auc_score(y_true, y_score))
@@ -52,6 +56,10 @@ def binary_metrics(
     else:
         out["auroc"] = float("nan")
         out["auprc"] = float("nan")
+    if f1_score is not None:
+        out["f1"] = float(f1_score(y_true, y_pred, zero_division=0))
+    else:
+        out["f1"] = float("nan")
     return out
 
 

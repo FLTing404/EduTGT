@@ -1,6 +1,6 @@
 raw_oulad: data/raw/OULAD
 
-# SpatialTemporal 通过预测（E1/E2），与 main.py 量级对齐
+# E1（scratch）：时空子图长度；与 main 常规量级一致。E2（pretrain）在脚本内固定 30/21，不读此两项。
 st:
   ctx_sample: 40
   tmp_sample: 31

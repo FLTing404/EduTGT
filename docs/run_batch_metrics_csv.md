@@ -6,7 +6,7 @@
 
 ## 1. 脚本做什么
 
-在 **项目根目录**（与 `main.py` 同级）下，对选定的 **整模块数据集 `AAA` 或 `BBB`** 做一轮批量实验：
+在 **项目根目录**（与 `main.py` 同级）下，对选定的 **整模块数据集**（`AAA`、`BBB`、…、`GGG`，与预处理脚本中的模块名一致）做一轮批量实验：
 
 对每个 **seed**（默认三个：`42,1,2`），按固定顺序依次执行：
 
@@ -21,15 +21,15 @@
 
 - **不会**调用 `pretrain.py`。需你事先完成预训练，并存在 **`outputs/pretrain/<data_name>.pth`**（例如 `data_AAA` → `outputs/pretrain/data_AAA.pth`）。
 - 所有子进程 **`cwd`** 为项目根，并设置 **`PYTHONPATH`** 指向该根目录，保证 `import utils`、`import paths` 等与手动运行一致。
-- **数据目录**固定为：`data/processed/data_AAA` 或 `data/processed/data_BBB`（由 `--dataset` 决定）。若目录不存在，脚本直接退出并报错。
+- **数据目录**固定为：`data/processed/data_<MODULE>`（由 `--dataset` 决定，例如 `CCC` → `data/processed/data_CCC`）。若目录不存在，脚本直接退出并报错。
 
 ---
 
 ## 2. 前置条件检查清单
 
 1. **工作目录**：在 **`EduTGT/EduTGT`** 下执行（与文档 [使用指南.md](./使用指南.md) 一致）。
-2. **数据**：已存在 `data/processed/data_AAA/` 或 `data/processed/data_BBB/`，且含 `ml_*.csv`、`.content` 等（见 [README_oulad.md](./README_oulad.md)）。
-3. **预训练权重**：`outputs/pretrain/data_AAA.pth` 或 `data_BBB.pth`。缺失时脚本会打印 **警告**，随后 `main`/消融通常会报错退出。
+2. **数据**：已存在对应目录 `data/processed/data_AAA/` … `data/processed/data_GGG/`（取决于你选的 `--dataset`），且含 `ml_*.csv`、`.content` 等（见 [README_oulad.md](./README_oulad.md)）。
+3. **预训练权重**：`outputs/pretrain/data_<MODULE>.pth`（例如 `data_CCC.pth`）。缺失时脚本会打印 **警告**，随后 `main`/消融通常会报错退出。
 4. **presentation 消融**：`ablation_pres` 需要数据目录下存在 **`pres_relation.json`**。若未生成，请先执行：  
    `python data/scripts/build_pres_relation.py --data_dir data/processed/data_AAA`（路径按你的数据集改）。
 5. **TGN**：需安装 PyG，例如：  
@@ -42,7 +42,7 @@
 
 | 参数 | 默认值 | 说明 |
 |------|--------|------|
-| `--dataset` | **必填** | 仅支持 **`AAA`** 或 **`BBB`**，对应 `data/processed/data_AAA`、`data_BBB`。 |
+| `--dataset` | **必填** | **`AAA`～`GGG`** 之一（与 `preprocess_oulad_for_contratgt.py` 整模块一致），对应 `data/processed/data_<MODULE>`。 |
 | `--seeds` | `42,1,2` | 逗号分隔的整数列表，**不要**加空格（或仅数字间逗号）。 |
 | `--n_epoch` | `50` | 传给 `main.py` 与两个消融的 `--n_epoch`。 |
 | `--bs` | `800` | 传给上述三者的 `--bs`。 |
@@ -77,6 +77,10 @@ python run_batch_metrics_csv.py --dataset AAA
 # BBB，自定义种子与 CPU 跑 baseline
 python run_batch_metrics_csv.py --dataset BBB --seeds 42,2025,7 --device cpu
 
+# CCC～GGG 用法相同（需已预处理并存在对应目录与预训练权重）
+python run_batch_metrics_csv.py --dataset CCC
+python run_batch_metrics_csv.py --dataset GGG --device cpu
+
 # 缩短 baseline 轮数、指定 CSV 输出位置
 python run_batch_metrics_csv.py --dataset AAA --baseline_epochs 20 --out_csv outputs/result/my_sweep.csv
 ```
@@ -95,7 +99,7 @@ python run_batch_metrics_csv.py --dataset AAA --baseline_epochs 20 --out_csv out
 
 | 列名 | 含义 |
 |------|------|
-| `dataset` | 命令行中的 `AAA` 或 `BBB`（不是 `data_AAA` 字符串）。 |
+| `dataset` | 命令行中的模块代码（`AAA`…`GGG`，不是 `data_AAA` 这种带前缀的目录名）。 |
 | `method` | `main` / `ablation_pres` / `ablation_stc` / `tgn` / `tgat` / `jodie`。 |
 | `seed` | 本次子进程传入的 `--seed`，与 main/消融的 `init_seeds(args.seed)` 及 baseline 的 `set_seed` 一致（见第 7 节）。 |
 | `AUC` | 全量 **test** 集 AUC（main/消融来自 `training_runs.jsonl`；baseline 来自 `result.json` 的 `test_auc`）。 |

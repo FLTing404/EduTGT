@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """
-E1：SpatialTemporal 随机初始化 + 线性分类头。
-E2：加载 outputs/pretrain/<data_name>.pth 后同上微调。
+E1：SpatialTemporal 随机初始化 + 线性分类头；不读预训练权重，ctx/tmp 由配置（与 main 量级一致）。
+E2：加载 outputs/pretrain/<data_name>.pth；ctx/tmp 固定为 pretrain.py 内 30/21，与权重匹配。
 
-只读 data/processed 与预训练权重；标签与 split 在 downstream_pass_prediction/data/；
+只读 data/processed；E2 另只读预训练权重。标签与 split 在 downstream_pass_prediction/data/；
 checkpoint 写在 downstream_pass_prediction/outputs/。
 """
 from __future__ import annotations
@@ -11,6 +11,7 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -40,6 +41,10 @@ from paths_downstream import DOWNSTREAM_ROOT, REPO_ROOT, module_data_dir  # noqa
 from st_encode import get_src_embed  # noqa: E402
 from io_data import load_stats  # noqa: E402
 from st_graph import build_anchor_lists, load_graph_bundle, pack_anchors  # noqa: E402
+
+# 仅 E2：与仓库根目录 pretrain.py 写死的 ctx_sample / tmp_sample 一致（勿改单边）
+PRETRAIN_CTX_SAMPLE = 30
+PRETRAIN_TMP_SAMPLE = 21
 
 
 def _load_yaml(p: Path) -> dict:
@@ -76,6 +81,24 @@ def main() -> None:
     ap.add_argument("--epochs", type=int, default=50)
     ap.add_argument("--lr", type=float, default=None)
     ap.add_argument(
+        "--freeze-epochs",
+        type=int,
+        default=None,
+        help=(
+            "仅 E2：开头 N 轮冻结编码器、只训练分类头（热身），之后再解冻全量微调。"
+            "默认 E2=5，E1=0"
+        ),
+    )
+    ap.add_argument(
+        "--head-lr-factor",
+        type=float,
+        default=None,
+        help=(
+            "分类头学习率 = lr × factor；E2 默认 10.0，让头部更快适应预训练特征空间；"
+            "E1 默认 1.0"
+        ),
+    )
+    ap.add_argument(
         "--patience",
         type=int,
         default=10,
@@ -93,19 +116,37 @@ def main() -> None:
         action="store_true",
         help="不保存 ROC 曲线 PNG（仍输出 test_auroc）",
     )
+    ap.add_argument(
+        "--dump-run-json",
+        type=str,
+        default=None,
+        help="将本次运行的指标等写入该 JSON 文件（便于批处理汇总）",
+    )
     args = ap.parse_args()
+    wall_t0 = time.perf_counter()
 
     cfg = _load_yaml(Path(args.config))
     seed = int(args.seed if args.seed is not None else cfg.get("seed", 60))
     st_cfg = cfg.get("st") or {}
-    ctx_sample = int(st_cfg.get("ctx_sample", cfg.get("ctx_sample", 40)))
-    tmp_sample = int(st_cfg.get("tmp_sample", cfg.get("tmp_sample", 31)))
+    if args.init == "pretrain":
+        ctx_sample = PRETRAIN_CTX_SAMPLE
+        tmp_sample = PRETRAIN_TMP_SAMPLE
+    else:
+        ctx_sample = int(st_cfg.get("ctx_sample", cfg.get("ctx_sample", 40)))
+        tmp_sample = int(st_cfg.get("tmp_sample", cfg.get("tmp_sample", 31)))
     dropout = float(st_cfg.get("drop_out", st_cfg.get("dropout", cfg.get("drop_out", 0.2))))
     nheads = int(st_cfg.get("n_heads", 4))
     n_layers = int(st_cfg.get("N", 2))
     out_dim = int(st_cfg.get("out_dim", 128))
     batch_size = int(args.batch_size or st_cfg.get("batch_size", 32))
     lr = float(args.lr if args.lr is not None else st_cfg.get("lr", 1e-4))
+    # 两阶段微调参数：E2 默认先冻结 5 轮热身头，再差分 LR 解冻；E1 不冻结
+    if args.init == "pretrain":
+        freeze_epochs = args.freeze_epochs if args.freeze_epochs is not None else 5
+        head_lr_factor = args.head_lr_factor if args.head_lr_factor is not None else 10.0
+    else:
+        freeze_epochs = args.freeze_epochs if args.freeze_epochs is not None else 0
+        head_lr_factor = args.head_lr_factor if args.head_lr_factor is not None else 1.0
     t_star = args.t_star_relative_day
     if t_star is None and cfg.get("t_star_relative_day") is not None:
         t_star = cfg.get("t_star_relative_day")
@@ -190,11 +231,32 @@ def main() -> None:
     neg = float((y_all[tr_m] == 0).sum().item())
     pos_weight = torch.tensor([neg / max(pos, 1.0)], device=device)
     criterion = nn.BCEWithLogitsLoss(pos_weight=pos_weight)
-    opt = torch.optim.Adam(
-        list(st_model.parameters()) + list(head.parameters()),
-        lr=lr,
-        weight_decay=float(st_cfg.get("weight_decay", 1e-5)),
-    )
+
+    wd = float(st_cfg.get("weight_decay", 1e-5))
+
+    def _build_opt(frozen: bool) -> torch.optim.Optimizer:
+        """frozen=True：只优化头部（编码器梯度被 requires_grad 关掉）。
+        frozen=False：差分 LR——编码器用 lr，头部用 lr × head_lr_factor。"""
+        if frozen:
+            return torch.optim.Adam(head.parameters(), lr=lr * head_lr_factor, weight_decay=wd)
+        if head_lr_factor == 1.0:
+            return torch.optim.Adam(
+                list(st_model.parameters()) + list(head.parameters()),
+                lr=lr,
+                weight_decay=wd,
+            )
+        return torch.optim.Adam(
+            [
+                {"params": list(st_model.parameters()), "lr": lr, "weight_decay": wd},
+                {"params": list(head.parameters()), "lr": lr * head_lr_factor, "weight_decay": wd},
+            ]
+        )
+
+    # Phase-1 setup：若 freeze_epochs > 0 先冻结编码器
+    currently_frozen = freeze_epochs > 0
+    if currently_frozen:
+        st_model.requires_grad_(False)
+    opt = _build_opt(currently_frozen)
 
     idx_all_cpu = idx_all.cpu()
     y_all_cpu = y_all.cpu()
@@ -222,6 +284,12 @@ def main() -> None:
     best_state = None
 
     for epoch in range(int(args.epochs)):
+        # Phase-2 切换：到达 freeze_epochs 时解冻编码器，换差分 LR 优化器
+        if currently_frozen and epoch >= freeze_epochs:
+            st_model.requires_grad_(True)
+            currently_frozen = False
+            opt = _build_opt(frozen=False)
+
         st_model.train()
         head.train()
         tr_idx = np.where(tr_m)[0]
@@ -297,12 +365,18 @@ def main() -> None:
         "time_utc": datetime.now(timezone.utc).isoformat(),
         "module": mod,
         "init": args.init,
+        "ctx_sample": ctx_sample,
+        "tmp_sample": tmp_sample,
         "seed": seed,
         "t_star_relative_day": t_star,
+        "freeze_epochs": freeze_epochs,
+        "head_lr_factor": head_lr_factor,
         "test_acc": m_te.get("acc"),
         "acc_threshold": m_te.get("acc_threshold"),
         "test_auroc": m_te.get("auroc"),
         "test_auprc": m_te.get("auprc"),
+        "test_f1": m_te.get("f1"),
+        "wall_time_sec": round(time.perf_counter() - wall_t0, 3),
         "epochs_ran": epoch + 1,
         "checkpoint": str(ckpt_out.relative_to(DOWNSTREAM_ROOT)).replace("\\", "/"),
         "roc_plot": str(roc_path.relative_to(DOWNSTREAM_ROOT)).replace("\\", "/")
@@ -311,6 +385,11 @@ def main() -> None:
     }
     with open(out_root / "runs_st.jsonl", "a", encoding="utf-8") as f:
         f.write(json.dumps(rec, ensure_ascii=False) + "\n")
+    if args.dump_run_json:
+        dj = Path(args.dump_run_json)
+        dj.parent.mkdir(parents=True, exist_ok=True)
+        with open(dj, "w", encoding="utf-8") as f:
+            f.write(json.dumps(rec, ensure_ascii=False))
     print(json.dumps(rec, ensure_ascii=False, indent=2))
     if not args.no_roc_plot and not roc_saved:
         print(
