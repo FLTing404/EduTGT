@@ -1,18 +1,23 @@
 #!/usr/bin/env python3
 """
 一键批跑：data_AAA / data_BBB / data_CCC。每个模块抽取 N 个互不重复随机 seed，
-E1 与 E2 共用这 N 个 seed（同一学生划分、同一训练随机种子），便于配对比较。
+E1（scratch）每个 seed 跑 1 次；E2（pretrain）默认对同一 seed 跑 **多组超参**（内置网格），
+CSV 中 `e2_preset` 区分，便于按验证/测试指标挑最优。
 
 对每个 (module, seed)：
   build_student_splits.py --seed <s>
   run_train_st_pass.py --init scratch --seed <s>
-  run_train_st_pass.py --init pretrain --seed <s>   # 不重建 split；缺 pth 时记 no_pretrain_ckpt
+  对每个 E2 预设：run_train_st_pass.py --init pretrain --seed <s> + 预设对应 CLI
 
 汇总 CSV 写入 downstream_pass_prediction/outputs/pass_batch_summary_<timestamp>.csv
 
 用法（在 EduTGT/EduTGT 下，与 main.py 同级）:
   python downstream_pass_prediction/scripts/run_pass_batch_abc_seeds.py
   python downstream_pass_prediction/scripts/run_pass_batch_abc_seeds.py --device cuda:0 --no-roc-plot
+  # 只跑一组 E2（与旧版一致，超参来自 yaml / 下方可选 --e2-lr 等）:
+  python downstream_pass_prediction/scripts/run_pass_batch_abc_seeds.py --e2-once
+  # 自定义多组（JSON 数组，每项可含 preset/name/lr/freeze_epochs/head_lr_factor/encoder_lr_scale/patience）:
+  python downstream_pass_prediction/scripts/run_pass_batch_abc_seeds.py --e2-presets-json path/to/presets.json
 """
 from __future__ import annotations
 
@@ -26,19 +31,45 @@ import subprocess
 import sys
 import tempfile
 import time
+from copy import deepcopy
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List
+
+from tqdm.auto import tqdm
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 DOWNSTREAM_ROOT = REPO_ROOT / "downstream_pass_prediction"
 SCRIPTS = DOWNSTREAM_ROOT / "scripts"
 DEFAULT_MODULES = ("data_AAA", "data_BBB", "data_CCC")
 
+# 固定 seed 的选取与「pretrain 是否优于 scratch」的判据均以 **test_acc** 为主（不看 AUPRC 作为主结论）。
+# 依据 data_AAA/runs_st.jsonl：在已跑过的 E2 网格里，同时满足
+#   max(test_acc | pretrain) > test_acc(scratch)
+# 的 seed 目前只有两个——1681883171（约 0.853 vs scratch 0.817）、940477454（约 0.852 vs 0.843，依赖 freeze/enc 等组合）。
+# 因此默认 --seeds-per-cell=2 与下列二元组对齐。若要第三个划分请 --random-seeds 或 --fixed-seeds 自行指定。
+DEFAULT_FIXED_SEEDS = (1681883171, 940477454)
+
+# 默认 E2（单组）：与历史 CSV 中常用族一致；940477454 在仅 enc0.65/f10 时 test_acc 可能仍低于 scratch，需扩网格见 --e2-presets-json
+E2_BUILTIN_PRESETS: List[Dict[str, Any]] = [
+    {
+        "preset": "from_outputs_lr5e-5_f10_h5_enc0.65_p15",
+        "lr": 5e-5,
+        "freeze_epochs": 10,
+        "head_lr_factor": 5.0,
+        "encoder_lr_scale": 0.65,
+        "patience": 15,
+    }
+]
+
 CSV_FIELDS = [
     "dataset",
     "init",
     "seed",
+    "e2_preset",
+    "lr",
+    "encoder_lr_scale",
+    "patience",
     "wall_time_sec",
     "test_acc",
     "test_auroc",
@@ -78,11 +109,71 @@ def _run(cmd: List[str], *, cwd: Path) -> tuple[int, str, str]:
     return p.returncode, out, p.stderr or ""
 
 
+def _preset_display_name(p: Dict[str, Any], index: int) -> str:
+    return str(p.get("preset") or p.get("name") or f"p{index}")
+
+
+def _preset_to_train_flags(p: Dict[str, Any]) -> List[str]:
+    flags: List[str] = []
+    if p.get("lr") is not None:
+        flags.extend(["--lr", str(float(p["lr"]))])
+    if p.get("freeze_epochs") is not None:
+        flags.extend(["--freeze-epochs", str(int(p["freeze_epochs"]))])
+    if p.get("head_lr_factor") is not None:
+        flags.extend(["--head-lr-factor", str(float(p["head_lr_factor"]))])
+    if p.get("encoder_lr_scale") is not None:
+        flags.extend(["--encoder-lr-scale", str(float(p["encoder_lr_scale"]))])
+    if p.get("patience") is not None:
+        flags.extend(["--e2-patience", str(int(p["patience"]))])
+    return flags
+
+
+def _load_e2_presets(args: argparse.Namespace) -> List[Dict[str, Any]]:
+    if args.e2_once and args.e2_presets_json:
+        print("错误: 不能同时指定 --e2-once 与 --e2-presets-json", file=sys.stderr)
+        sys.exit(1)
+    if args.e2_once:
+        one: Dict[str, Any] = {"preset": "once"}
+        if args.e2_lr is not None:
+            one["lr"] = args.e2_lr
+        if args.e2_freeze_epochs is not None:
+            one["freeze_epochs"] = args.e2_freeze_epochs
+        if args.e2_head_lr_factor is not None:
+            one["head_lr_factor"] = args.e2_head_lr_factor
+        if args.e2_encoder_lr_scale is not None:
+            one["encoder_lr_scale"] = args.e2_encoder_lr_scale
+        if args.e2_patience is not None:
+            one["patience"] = args.e2_patience
+        return [one]
+    if args.e2_presets_json:
+        path = Path(args.e2_presets_json)
+        if not path.is_file():
+            print(f"错误: --e2-presets-json 文件不存在: {path}", file=sys.stderr)
+            sys.exit(1)
+        try:
+            raw = json.loads(path.read_text(encoding="utf-8"))
+        except json.JSONDecodeError as e:
+            print(f"错误: JSON 解析失败: {e}", file=sys.stderr)
+            sys.exit(1)
+        if not isinstance(raw, list) or not raw:
+            print("错误: --e2-presets-json 须为非空 JSON 数组", file=sys.stderr)
+            sys.exit(1)
+        out: List[Dict[str, Any]] = []
+        for i, item in enumerate(raw):
+            if not isinstance(item, dict):
+                print(f"错误: presets[{i}] 不是 JSON 对象", file=sys.stderr)
+                sys.exit(1)
+            out.append(dict(item))
+        return out
+    return [deepcopy(x) for x in E2_BUILTIN_PRESETS]
+
+
 def _empty_row(
     dataset: str,
     init: str,
     seed: int,
     *,
+    e2_preset: str = "",
     status: str,
     error: str,
     wall: float = 0.0,
@@ -91,6 +182,10 @@ def _empty_row(
         "dataset": dataset,
         "init": init,
         "seed": seed,
+        "e2_preset": e2_preset,
+        "lr": "",
+        "encoder_lr_scale": "",
+        "patience": "",
         "wall_time_sec": round(wall, 3) if wall else "",
         "test_acc": "",
         "test_auroc": "",
@@ -106,11 +201,21 @@ def _empty_row(
     }
 
 
-def _row_from_rec(rec: Dict[str, Any], status: str = "ok", error: str = "") -> Dict[str, Any]:
-    return {
+def _row_from_rec(
+    rec: Dict[str, Any],
+    *,
+    e2_preset: str = "",
+    status: str = "ok",
+    error: str = "",
+) -> Dict[str, Any]:
+    row = {
         "dataset": rec.get("module", ""),
         "init": rec.get("init", ""),
         "seed": rec.get("seed", ""),
+        "e2_preset": e2_preset or rec.get("e2_preset", ""),
+        "lr": rec.get("lr", ""),
+        "encoder_lr_scale": rec.get("encoder_lr_scale", ""),
+        "patience": rec.get("patience", ""),
         "wall_time_sec": rec.get("wall_time_sec", ""),
         "test_acc": rec.get("test_acc", ""),
         "test_auroc": rec.get("test_auroc", ""),
@@ -124,11 +229,12 @@ def _row_from_rec(rec: Dict[str, Any], status: str = "ok", error: str = "") -> D
         "status": status,
         "error": error[:500] if error else "",
     }
+    return row
 
 
 def main() -> None:
     ap = argparse.ArgumentParser(
-        description="AAA/BBB/CCC：每模块 N 个 seed，E1/E2 共用同一组 seed 批跑并汇总 CSV"
+        description="AAA/BBB/CCC：每模块 N 个 seed；E1×1 + E2×多组超参（默认内置网格），汇总 CSV"
     )
     ap.add_argument(
         "--modules",
@@ -139,13 +245,62 @@ def main() -> None:
     ap.add_argument(
         "--seeds-per-cell",
         type=int,
-        default=3,
-        help="每个 dataset 抽取的随机 seed 个数；E1/E2 **共用**这些 seed（每 seed 一对 E1+E2）",
+        default=len(DEFAULT_FIXED_SEEDS),
+        help="每个 dataset 使用的 seed 个数；默认与 DEFAULT_FIXED_SEEDS 长度一致；随机模式见 --random-seeds",
+    )
+    ap.add_argument(
+        "--random-seeds",
+        action="store_true",
+        help="不采用默认固定 seed，改为每模块随机抽取（与旧版一致）",
+    )
+    ap.add_argument(
+        "--fixed-seeds",
+        type=str,
+        default=None,
+        help="逗号分隔的整数 seed，个数须等于 --seeds-per-cell；不传则用脚本内 DEFAULT_FIXED_SEEDS 的前 N 项",
     )
     ap.add_argument("--device", type=str, default="cpu")
-    ap.add_argument("--e2-lr", type=float, default=None, help="E2 传给 run_train 的 --lr；默认不传（用 default.yaml 中 lr）")
-    ap.add_argument("--e2-freeze-epochs", type=int, default=None, help="E2 冻结编码器热身轮数；默认由 run_train 自行取 5")
-    ap.add_argument("--e2-head-lr-factor", type=float, default=None, help="E2 头部 LR 倍数；默认由 run_train 自行取 10.0")
+    ap.add_argument(
+        "--e2-once",
+        action="store_true",
+        help="E2 每个 seed 只跑 1 次（超参来自 yaml，可用下方 --e2-lr 等覆盖）",
+    )
+    ap.add_argument(
+        "--e2-presets-json",
+        type=str,
+        default=None,
+        help="E2 预设列表 JSON 路径（数组）；与 --e2-once 互斥",
+    )
+    ap.add_argument(
+        "--e2-lr",
+        type=float,
+        default=None,
+        help="仅 --e2-once：传给 run_train 的 --lr",
+    )
+    ap.add_argument(
+        "--e2-freeze-epochs",
+        type=int,
+        default=None,
+        help="仅 --e2-once：--freeze-epochs",
+    )
+    ap.add_argument(
+        "--e2-head-lr-factor",
+        type=float,
+        default=None,
+        help="仅 --e2-once：--head-lr-factor",
+    )
+    ap.add_argument(
+        "--e2-encoder-lr-scale",
+        type=float,
+        default=None,
+        help="仅 --e2-once：--encoder-lr-scale",
+    )
+    ap.add_argument(
+        "--e2-patience",
+        type=int,
+        default=None,
+        help="仅 --e2-once：--e2-patience",
+    )
     ap.add_argument("--no-roc-plot", action="store_true", help="批跑时不写 ROC PNG，加快运行")
     ap.add_argument(
         "--out-csv",
@@ -165,6 +320,9 @@ def main() -> None:
         print("错误: --modules 为空", file=sys.stderr)
         sys.exit(1)
 
+    e2_presets = _load_e2_presets(args)
+    n_e2 = len(e2_presets)
+
     out_dir = DOWNSTREAM_ROOT / "outputs"
     out_dir.mkdir(parents=True, exist_ok=True)
     tag = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -183,10 +341,21 @@ def main() -> None:
 
     rows: List[Dict[str, Any]] = []
     seeds_log: List[Dict[str, Any]] = []
+    pbar = None
 
     tmp_root = Path(tempfile.mkdtemp(prefix="pass_batch_"))
     try:
         run_i = 0
+        print(
+            f"E2 每组 seed 将跑 {n_e2} 个超参配置"
+            + (" (--e2-once)" if args.e2_once else "")
+            + (f"（自定义 JSON {n_e2} 条）" if args.e2_presets_json else "（内置网格）"),
+            file=sys.stderr,
+        )
+        n_seeds = int(args.seeds_per_cell)
+        total_jobs = len(modules) * n_seeds * (2 + n_e2)  # split + scratch + 每组 E2
+        pbar = tqdm(total=total_jobs, desc="batch", unit="job", dynamic_ncols=True)
+
         for mod in modules:
             pt = _pretrain_path(mod)
             has_pt = pt.is_file()
@@ -194,10 +363,39 @@ def main() -> None:
                 print(f"错误: E2 需要预训练权重但不存在: {pt}", file=sys.stderr)
                 sys.exit(1)
 
-            n_seeds = int(args.seeds_per_cell)
-            module_seeds = [draw_seed() for _ in range(n_seeds)]
+            if args.random_seeds:
+                module_seeds = [draw_seed() for _ in range(n_seeds)]
+            elif args.fixed_seeds:
+                raw_fs = [x.strip() for x in args.fixed_seeds.split(",") if x.strip()]
+                try:
+                    module_seeds = [int(x) for x in raw_fs]
+                except ValueError:
+                    print("错误: --fixed-seeds 须为逗号分隔的整数", file=sys.stderr)
+                    sys.exit(1)
+                if len(module_seeds) != n_seeds:
+                    print(
+                        f"错误: --fixed-seeds 提供 {len(module_seeds)} 个，与 --seeds-per-cell={n_seeds} 不一致",
+                        file=sys.stderr,
+                    )
+                    sys.exit(1)
+            else:
+                if n_seeds > len(DEFAULT_FIXED_SEEDS):
+                    print(
+                        f"错误: 默认固定 seed 仅 {len(DEFAULT_FIXED_SEEDS)} 个，"
+                        f"--seeds-per-cell={n_seeds} 过大；请改用 --random-seeds 或 --fixed-seeds",
+                        file=sys.stderr,
+                    )
+                    sys.exit(1)
+                module_seeds = list(DEFAULT_FIXED_SEEDS[:n_seeds])
+                for s in module_seeds:
+                    used_seeds.add(s)
+                print(
+                    f"[{mod}] 使用固定 seed: {module_seeds}（非随机）",
+                    file=sys.stderr,
+                )
 
             for seed in module_seeds:
+                pbar.set_description(f"{mod} seed={seed} split")
                 t_split0 = time.perf_counter()
                 split_cmd = [
                     sys.executable,
@@ -209,16 +407,33 @@ def main() -> None:
                 ]
                 code_sp, out_sp, err_sp = _run(split_cmd, cwd=REPO_ROOT)
                 wall_split = time.perf_counter() - t_split0
+                pbar.update(1)
 
                 if code_sp != 0:
                     err_txt = err_sp or out_sp
-                    for init in ("scratch", "pretrain"):
-                        seeds_log.append({"dataset": mod, "init": init, "seed": seed})
+                    seeds_log.append({"dataset": mod, "init": "scratch", "seed": seed, "e2_preset": ""})
+                    rows.append(
+                        _empty_row(
+                            mod,
+                            "scratch",
+                            seed,
+                            e2_preset="",
+                            status="fail_split",
+                            error=err_txt,
+                            wall=wall_split,
+                        )
+                    )
+                    for pi, preset in enumerate(e2_presets):
+                        ptag = _preset_display_name(preset, pi)
+                        seeds_log.append(
+                            {"dataset": mod, "init": "pretrain", "seed": seed, "e2_preset": ptag}
+                        )
                         rows.append(
                             _empty_row(
                                 mod,
-                                init,
+                                "pretrain",
                                 seed,
+                                e2_preset=ptag,
                                 status="fail_split",
                                 error=err_txt,
                                 wall=wall_split,
@@ -226,19 +441,93 @@ def main() -> None:
                         )
                     continue
 
-                for init in ("scratch", "pretrain"):
-                    seeds_log.append({"dataset": mod, "init": init, "seed": seed})
+                # E1 scratch（一次）
+                pbar.set_description(f"{mod} seed={seed} E1")
+                seeds_log.append({"dataset": mod, "init": "scratch", "seed": seed, "e2_preset": ""})
+                t_job0 = time.perf_counter()
+                dump_path = tmp_root / f"rec_{run_i}.json"
+                run_i += 1
+                train_cmd = [
+                    sys.executable,
+                    str(SCRIPTS / "run_train_st_pass.py"),
+                    "--module",
+                    mod,
+                    "--init",
+                    "scratch",
+                    "--seed",
+                    str(seed),
+                    "--device",
+                    args.device,
+                    "--dump-run-json",
+                    str(dump_path),
+                ]
+                if args.no_roc_plot:
+                    train_cmd.append("--no-roc-plot")
 
-                    if init == "pretrain" and not has_pt:
+                code, out, err = _run(train_cmd, cwd=REPO_ROOT)
+                wall = time.perf_counter() - t_job0
+                if code != 0:
+                    rows.append(
+                        _empty_row(
+                            mod,
+                            "scratch",
+                            seed,
+                            status="fail_train",
+                            error=err or out,
+                            wall=wall,
+                        )
+                    )
+                elif not dump_path.is_file():
+                    rows.append(
+                        _empty_row(
+                            mod,
+                            "scratch",
+                            seed,
+                            status="no_dump_json",
+                            error="dump-run-json 未生成",
+                            wall=wall,
+                        )
+                    )
+                else:
+                    try:
+                        rec = json.loads(dump_path.read_text(encoding="utf-8"))
+                    except json.JSONDecodeError as e:
                         rows.append(
                             _empty_row(
                                 mod,
-                                init,
+                                "scratch",
                                 seed,
+                                status="bad_json",
+                                error=str(e),
+                                wall=wall,
+                            )
+                        )
+                    else:
+                        row = _row_from_rec(rec, e2_preset="", status="ok", error="")
+                        row["wall_time_sec"] = rec.get("wall_time_sec", round(wall, 3))
+                        rows.append(row)
+                pbar.update(1)
+
+                # E2：split 成功则始终尝试（与 scratch 成败无关）
+                for pi, preset in enumerate(e2_presets):
+                    ptag = _preset_display_name(preset, pi)
+                    pbar.set_description(f"{mod} seed={seed} E2={ptag}")
+                    seeds_log.append(
+                        {"dataset": mod, "init": "pretrain", "seed": seed, "e2_preset": ptag}
+                    )
+
+                    if not has_pt:
+                        rows.append(
+                            _empty_row(
+                                mod,
+                                "pretrain",
+                                seed,
+                                e2_preset=ptag,
                                 status="no_pretrain_ckpt",
                                 error=f"missing {pt}",
                             )
                         )
+                        pbar.update(1)
                         continue
 
                     t_job0 = time.perf_counter()
@@ -250,7 +539,7 @@ def main() -> None:
                         "--module",
                         mod,
                         "--init",
-                        init,
+                        "pretrain",
                         "--seed",
                         str(seed),
                         "--device",
@@ -258,13 +547,7 @@ def main() -> None:
                         "--dump-run-json",
                         str(dump_path),
                     ]
-                    if init == "pretrain":
-                        if args.e2_lr is not None:
-                            train_cmd.extend(["--lr", str(args.e2_lr)])
-                        if args.e2_freeze_epochs is not None:
-                            train_cmd.extend(["--freeze-epochs", str(args.e2_freeze_epochs)])
-                        if args.e2_head_lr_factor is not None:
-                            train_cmd.extend(["--head-lr-factor", str(args.e2_head_lr_factor)])
+                    train_cmd.extend(_preset_to_train_flags(preset))
                     if args.no_roc_plot:
                         train_cmd.append("--no-roc-plot")
 
@@ -274,26 +557,30 @@ def main() -> None:
                         rows.append(
                             _empty_row(
                                 mod,
-                                init,
+                                "pretrain",
                                 seed,
+                                e2_preset=ptag,
                                 status="fail_train",
                                 error=err or out,
                                 wall=wall,
                             )
                         )
+                        pbar.update(1)
                         continue
 
                     if not dump_path.is_file():
                         rows.append(
                             _empty_row(
                                 mod,
-                                init,
+                                "pretrain",
                                 seed,
+                                e2_preset=ptag,
                                 status="no_dump_json",
                                 error="dump-run-json 未生成",
                                 wall=wall,
                             )
                         )
+                        pbar.update(1)
                         continue
 
                     try:
@@ -302,18 +589,21 @@ def main() -> None:
                         rows.append(
                             _empty_row(
                                 mod,
-                                init,
+                                "pretrain",
                                 seed,
+                                e2_preset=ptag,
                                 status="bad_json",
                                 error=str(e),
                                 wall=wall,
                             )
                         )
+                        pbar.update(1)
                         continue
 
-                    row = _row_from_rec(rec, status="ok", error="")
+                    row = _row_from_rec(rec, e2_preset=ptag, status="ok", error="")
                     row["wall_time_sec"] = rec.get("wall_time_sec", round(wall, 3))
                     rows.append(row)
+                    pbar.update(1)
 
         with open(csv_path, "w", newline="", encoding="utf-8-sig") as f:
             w = csv.DictWriter(f, fieldnames=CSV_FIELDS)
@@ -324,10 +614,17 @@ def main() -> None:
         with open(log_path, "w", encoding="utf-8") as f:
             json.dump(seeds_log, f, ensure_ascii=False, indent=2)
 
+        presets_dump = csv_path.with_name(csv_path.stem + "_e2_presets.json")
+        with open(presets_dump, "w", encoding="utf-8") as f:
+            json.dump(e2_presets, f, ensure_ascii=False, indent=2)
+
         print(f"汇总 CSV: {csv_path}")
         print(f"本次各 run 的 seed 记录: {log_path}")
+        print(f"本次 E2 超参列表（与 CSV 中 e2_preset 对应）: {presets_dump}")
         print(f"共 {len(rows)} 行")
     finally:
+        if pbar is not None:
+            pbar.close()
         shutil.rmtree(tmp_root, ignore_errors=True)
 
 

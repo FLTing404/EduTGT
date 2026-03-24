@@ -1,6 +1,7 @@
 raw_oulad: data/raw/OULAD
 
 # E1（scratch）：时空子图长度；与 main 常规量级一致。E2（pretrain）在脚本内固定 30/21，不读此两项。
+# E2 专用（--init pretrain 且未传对应 CLI 时生效）：减轻解冻后对 backbone 的破坏，缓解相对 E1 指标偏低。
 st:
   ctx_sample: 40
   tmp_sample: 31
@@ -11,6 +12,11 @@ st:
   lr: 0.0001
   weight_decay: 0.00001
   batch_size: 32
+  e2_lr: 0.00005
+  e2_freeze_epochs: 10
+  e2_head_lr_factor: 5.0
+  e2_encoder_lr_scale: 0.5
+  e2_patience: 15
 
 # 早期预警：相对日截断（含该日）；null 表示不截断
 t_star_relative_day: null

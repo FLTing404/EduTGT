@@ -6,3 +6,4 @@ scikit-learn>=1.0
 PyYAML>=6.0
 torch>=1.10
 matplotlib>=3.5
+tqdm>=4.60

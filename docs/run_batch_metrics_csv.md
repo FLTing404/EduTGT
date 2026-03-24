@@ -8,16 +8,18 @@
 
 在 **项目根目录**（与 `main.py` 同级）下，对选定的 **整模块数据集**（`AAA`、`BBB`、…、`GGG`，与预处理脚本中的模块名一致）做一轮批量实验：
 
-对每个 **seed**（默认三个：`42,1,2`），按固定顺序依次执行：
+对每个 **seed**（默认三个：`42,2,2026`），按固定顺序依次执行：
 
 | 顺序 | `method`（CSV 中名称） | 实际命令 |
 |------|------------------------|----------|
 | 1 | `main` | `main.py` |
-| 2 | `ablation_pres` | `main_ablation_pres_relation.py` |
+| 2 | `ablation_pres`（**每个 `--pres_mix_uniform` 取值各跑 1 次**） | `main_ablation_pres_relation.py` |
 | 3 | `ablation_stc` | `main_ablation_student_temporal.py` |
 | 4 | `tgn` | `baseline/tgn/runner.py` |
 | 5 | `tgat` | `baseline/tgat/runner.py` |
 | 6 | `jodie` | `baseline/tncn/runner.py`（JODIE 风格，目录名为 `tncn`） |
+
+默认 `--pres_mix_uniform=0.25,0.35,0.45`，故每个 seed 会有 **3** 行 `ablation_pres`，CSV 中由列 **`pres_mix_uniform`** 区分。
 
 - **不会**调用 `pretrain.py`。需你事先完成预训练，并存在 **`outputs/pretrain/<data_name>.pth`**（例如 `data_AAA` → `outputs/pretrain/data_AAA.pth`）。
 - 所有子进程 **`cwd`** 为项目根，并设置 **`PYTHONPATH`** 指向该根目录，保证 `import utils`、`import paths` 等与手动运行一致。
@@ -43,7 +45,7 @@
 | 参数 | 默认值 | 说明 |
 |------|--------|------|
 | `--dataset` | **必填** | **`AAA`～`GGG`** 之一（与 `preprocess_oulad_for_contratgt.py` 整模块一致），对应 `data/processed/data_<MODULE>`。 |
-| `--seeds` | `42,1,2` | 逗号分隔的整数列表，**不要**加空格（或仅数字间逗号）。 |
+| `--seeds` | `42,2,2026` | 逗号分隔的整数列表，**不要**加空格（或仅数字间逗号）。 |
 | `--n_epoch` | `50` | 传给 `main.py` 与两个消融的 `--n_epoch`。 |
 | `--bs` | `800` | 传给上述三者的 `--bs`。 |
 | `--lr` | `0.001` | 传给上述三者及 baseline 的 `--lr`。 |
@@ -52,7 +54,7 @@
 | `--drop_out` | `0.2` | Dropout（main/消融）。 |
 | `--gpu` | `0` | `main`/消融 的 `--gpu`（CUDA 设备号）。 |
 | `--lambda_tc` | `0.1` | **仅** `ablation_stc`：放在子进程参数最前，与 [使用指南.md](./使用指南.md) 一致。 |
-| `--pres_mix_uniform` | `0.35` | **仅** `ablation_pres`。 |
+| `--pres_mix_uniform` | `0.25,0.35,0.45` | **仅** `ablation_pres`；逗号分隔多值时对**每个 seed** 各跑一轮；单值如 `0.35` 则只跑一轮。 |
 | `--baseline_epochs` | `50` | 三个 baseline 的 `--epochs`。 |
 | `--baseline_bs` | `200` | 三个 baseline 的 `--batch_size`（与 main 默认 800 区分开，避免 OOM）。 |
 | `--device` | `cuda` | baseline 的 `--device`：`cuda` 或 `cpu`。 |
@@ -71,11 +73,11 @@ python run_batch_metrics_csv.py -h
 ```bash
 cd EduTGT/EduTGT
 
-# AAA，默认 seeds=42,1,2，默认超参
+# AAA，默认 seeds=42,2,2026，默认 pres 网格 0.25/0.35/0.45
 python run_batch_metrics_csv.py --dataset AAA
 
-# BBB，自定义种子与 CPU 跑 baseline
-python run_batch_metrics_csv.py --dataset BBB --seeds 42,2025,7 --device cpu
+# BBB，自定义种子与 CPU 跑 baseline；pres 只跑单值（与旧版行为接近）
+python run_batch_metrics_csv.py --dataset BBB --seeds 42,2025,7 --pres_mix_uniform 0.35 --device cpu
 
 # CCC～GGG 用法相同（需已预处理并存在对应目录与预训练权重）
 python run_batch_metrics_csv.py --dataset CCC
@@ -102,6 +104,7 @@ python run_batch_metrics_csv.py --dataset AAA --baseline_epochs 20 --out_csv out
 | `dataset` | 命令行中的模块代码（`AAA`…`GGG`，不是 `data_AAA` 这种带前缀的目录名）。 |
 | `method` | `main` / `ablation_pres` / `ablation_stc` / `tgn` / `tgat` / `jodie`。 |
 | `seed` | 本次子进程传入的 `--seed`，与 main/消融的 `init_seeds(args.seed)` 及 baseline 的 `set_seed` 一致（见第 7 节）。 |
+| `pres_mix_uniform` | **仅** `ablation_pres` 有值（该次子进程传入的混合系数）；其它 `method` 为空。 |
 | `AUC` | 全量 **test** 集 AUC（main/消融来自 `training_runs.jsonl`；baseline 来自 `result.json` 的 `test_auc`）。 |
 | `ACC` | test ACC。 |
 | `AP` | test AP。 |
@@ -129,8 +132,9 @@ python run_batch_metrics_csv.py --dataset AAA --baseline_epochs 20 --out_csv out
 
 ## 6. 运行规模与耗时
 
-- 每个 seed：**6** 次子进程；默认 3 个 seed → **共 18 次**。
-- 总时间 ≈ 各次 `time_cost` 之和；完整 epoch 下可能长达数小时，建议先用小 `--n_epoch` / `--baseline_epochs` 试跑。
+- 每个 seed：`main`（1）+ `ablation_pres`（**N** 次，N = `--pres_mix_uniform` 逗号分隔个数，默认 **3**）+ `ablation_stc`（1）+ 三个 baseline（3）→ **5 + N** 次子进程。
+- 默认 3 个 seed、N=3 → **共 (5+3)×3 = 24 次**。
+- 总时间 ≈ 各次 `time_cost` 之和；完整 epoch 下可能长达数小时，建议先用小 `--n_epoch` / `--baseline_epochs` 试跑，或 `--pres_mix_uniform 0.35` 缩小 pres 搜索。
 
 ---
 

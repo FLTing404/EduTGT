@@ -1,0 +1,66 @@
+[
+  {
+    "preset": "anchor_lr5e-5_f10_h5_enc0.64_p15",
+    "lr": 5e-5,
+    "freeze_epochs": 10,
+    "head_lr_factor": 5.0,
+    "encoder_lr_scale": 0.64,
+    "patience": 15
+  },
+  {
+    "preset": "anchor_lr5e-5_f10_h5_enc0.65_p15",
+    "lr": 5e-5,
+    "freeze_epochs": 10,
+    "head_lr_factor": 5.0,
+    "encoder_lr_scale": 0.65,
+    "patience": 15
+  },
+  {
+    "preset": "probe_lr5e-5_f10_h5_enc0.63_p15",
+    "lr": 5e-5,
+    "freeze_epochs": 10,
+    "head_lr_factor": 5.0,
+    "encoder_lr_scale": 0.63,
+    "patience": 15
+  },
+  {
+    "preset": "probe_lr5e-5_f10_h5_enc0.66_p15",
+    "lr": 5e-5,
+    "freeze_epochs": 10,
+    "head_lr_factor": 5.0,
+    "encoder_lr_scale": 0.66,
+    "patience": 15
+  },
+  {
+    "preset": "probe_lr5e-5_f11_h5_enc0.645_p15",
+    "lr": 5e-5,
+    "freeze_epochs": 11,
+    "head_lr_factor": 5.0,
+    "encoder_lr_scale": 0.645,
+    "patience": 15
+  },
+  {
+    "preset": "probe_lr5e-5_f9_h5_enc0.65_p15",
+    "lr": 5e-5,
+    "freeze_epochs": 9,
+    "head_lr_factor": 5.0,
+    "encoder_lr_scale": 0.65,
+    "patience": 15
+  },
+  {
+    "preset": "safe_lr4e-5_f12_h5_enc0.5_p18",
+    "lr": 4e-5,
+    "freeze_epochs": 12,
+    "head_lr_factor": 5.0,
+    "encoder_lr_scale": 0.5,
+    "patience": 18
+  },
+  {
+    "preset": "safe_lr4e-5_f15_h5_enc0.25_p20",
+    "lr": 4e-5,
+    "freeze_epochs": 15,
+    "head_lr_factor": 5.0,
+    "encoder_lr_scale": 0.25,
+    "patience": 20
+  }
+]

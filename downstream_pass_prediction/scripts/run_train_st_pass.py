@@ -86,7 +86,7 @@ def main() -> None:
         default=None,
         help=(
             "仅 E2：开头 N 轮冻结编码器、只训练分类头（热身），之后再解冻全量微调。"
-            "默认 E2=5，E1=0"
+            "默认 E1=0；E2 未指定时用 default.yaml 的 st.e2_freeze_epochs（默认 10）"
         ),
     )
     ap.add_argument(
@@ -94,15 +94,27 @@ def main() -> None:
         type=float,
         default=None,
         help=(
-            "分类头学习率 = lr × factor；E2 默认 10.0，让头部更快适应预训练特征空间；"
+            "分类头学习率 = lr × factor；E2 未指定时用 st.e2_head_lr_factor（默认 5.0）；"
             "E1 默认 1.0"
         ),
+    )
+    ap.add_argument(
+        "--encoder-lr-scale",
+        type=float,
+        default=None,
+        help="仅 E2：解冻后 backbone 有效 lr = lr × 本值；未传则用 yaml st.e2_encoder_lr_scale",
+    )
+    ap.add_argument(
+        "--e2-patience",
+        type=int,
+        default=None,
+        help="仅 E2：验证 AUPRC 早停耐心；未传则用 yaml st.e2_patience",
     )
     ap.add_argument(
         "--patience",
         type=int,
         default=10,
-        help="验证集 AUPRC 连续无提升的容忍轮数，达到则早停",
+        help="验证集 AUPRC 连续无提升的容忍轮数，达到则早停（E1；E2 见 --e2-patience / yaml）",
     )
     ap.add_argument("--t-star-relative-day", type=int, default=None)
     ap.add_argument(
@@ -132,21 +144,43 @@ def main() -> None:
         ctx_sample = PRETRAIN_CTX_SAMPLE
         tmp_sample = PRETRAIN_TMP_SAMPLE
     else:
-        ctx_sample = int(st_cfg.get("ctx_sample", cfg.get("ctx_sample", 40)))
-        tmp_sample = int(st_cfg.get("tmp_sample", cfg.get("tmp_sample", 31)))
+        # 为了 E1/E2 公平对比：让 scratch 也使用与 E2(pretrain) 相同的时空采样窗口
+        ctx_sample = PRETRAIN_CTX_SAMPLE
+        tmp_sample = PRETRAIN_TMP_SAMPLE
     dropout = float(st_cfg.get("drop_out", st_cfg.get("dropout", cfg.get("drop_out", 0.2))))
     nheads = int(st_cfg.get("n_heads", 4))
     n_layers = int(st_cfg.get("N", 2))
     out_dim = int(st_cfg.get("out_dim", 128))
     batch_size = int(args.batch_size or st_cfg.get("batch_size", 32))
-    lr = float(args.lr if args.lr is not None else st_cfg.get("lr", 1e-4))
-    # 两阶段微调参数：E2 默认先冻结 5 轮热身头，再差分 LR 解冻；E1 不冻结
+    base_lr = float(st_cfg.get("lr", 1e-4))
     if args.init == "pretrain":
-        freeze_epochs = args.freeze_epochs if args.freeze_epochs is not None else 5
-        head_lr_factor = args.head_lr_factor if args.head_lr_factor is not None else 10.0
+        lr = float(args.lr if args.lr is not None else st_cfg.get("e2_lr", 5e-5))
+        freeze_epochs = (
+            int(args.freeze_epochs)
+            if args.freeze_epochs is not None
+            else int(st_cfg.get("e2_freeze_epochs", 10))
+        )
+        head_lr_factor = (
+            float(args.head_lr_factor)
+            if args.head_lr_factor is not None
+            else float(st_cfg.get("e2_head_lr_factor", 5.0))
+        )
+        encoder_lr_scale = (
+            float(args.encoder_lr_scale)
+            if args.encoder_lr_scale is not None
+            else float(st_cfg.get("e2_encoder_lr_scale", 1.0))
+        )
+        patience_effective = (
+            int(args.e2_patience)
+            if args.e2_patience is not None
+            else int(st_cfg.get("e2_patience", args.patience))
+        )
     else:
+        lr = float(args.lr if args.lr is not None else base_lr)
         freeze_epochs = args.freeze_epochs if args.freeze_epochs is not None else 0
         head_lr_factor = args.head_lr_factor if args.head_lr_factor is not None else 1.0
+        encoder_lr_scale = 1.0
+        patience_effective = int(args.patience)
     t_star = args.t_star_relative_day
     if t_star is None and cfg.get("t_star_relative_day") is not None:
         t_star = cfg.get("t_star_relative_day")
@@ -236,10 +270,11 @@ def main() -> None:
 
     def _build_opt(frozen: bool) -> torch.optim.Optimizer:
         """frozen=True：只优化头部（编码器梯度被 requires_grad 关掉）。
-        frozen=False：差分 LR——编码器用 lr，头部用 lr × head_lr_factor。"""
+        frozen=False：差分 LR——编码器用 lr×encoder_lr_scale（E2 默认 <1 以保护预训练），头部用 lr×head_lr_factor。"""
         if frozen:
             return torch.optim.Adam(head.parameters(), lr=lr * head_lr_factor, weight_decay=wd)
-        if head_lr_factor == 1.0:
+        enc_lr = lr * encoder_lr_scale
+        if head_lr_factor == 1.0 and encoder_lr_scale == 1.0:
             return torch.optim.Adam(
                 list(st_model.parameters()) + list(head.parameters()),
                 lr=lr,
@@ -247,7 +282,7 @@ def main() -> None:
             )
         return torch.optim.Adam(
             [
-                {"params": list(st_model.parameters()), "lr": lr, "weight_decay": wd},
+                {"params": list(st_model.parameters()), "lr": enc_lr, "weight_decay": wd},
                 {"params": list(head.parameters()), "lr": lr * head_lr_factor, "weight_decay": wd},
             ]
         )
@@ -323,7 +358,7 @@ def main() -> None:
             }
         else:
             bad += 1
-        if bad >= int(args.patience):
+        if bad >= patience_effective:
             break
 
     if best_state is not None:
@@ -369,8 +404,11 @@ def main() -> None:
         "tmp_sample": tmp_sample,
         "seed": seed,
         "t_star_relative_day": t_star,
+        "lr": lr,
         "freeze_epochs": freeze_epochs,
         "head_lr_factor": head_lr_factor,
+        "encoder_lr_scale": encoder_lr_scale,
+        "patience": patience_effective,
         "test_acc": m_te.get("acc"),
         "acc_threshold": m_te.get("acc_threshold"),
         "test_auroc": m_te.get("auroc"),

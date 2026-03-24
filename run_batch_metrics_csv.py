@@ -11,7 +11,7 @@
 
 用法（在 EduTGT/EduTGT 下）:
   python run_batch_metrics_csv.py --dataset AAA
-  python run_batch_metrics_csv.py --dataset BBB --seeds 42,1,2 --device cpu
+  python run_batch_metrics_csv.py --dataset BBB --seeds 42,2,2026 --device cpu
   python run_batch_metrics_csv.py --dataset CCC
   python run_batch_metrics_csv.py --dataset GGG --device cpu
 
@@ -42,6 +42,7 @@ CSV_FIELDS = [
     "dataset",
     "method",
     "seed",
+    "pres_mix_uniform",
     "AUC",
     "ACC",
     "AP",
@@ -93,6 +94,7 @@ def _row_from_jsonl(rec: Dict[str, Any], dataset: str, method: str, seed: int, e
         "dataset": dataset,
         "method": method,
         "seed": seed,
+        "pres_mix_uniform": "",
         "AUC": test.get("auc", ""),
         "ACC": test.get("acc", ""),
         "AP": test.get("ap", ""),
@@ -113,6 +115,7 @@ def _row_from_baseline_json(
         "dataset": dataset,
         "method": method,
         "seed": seed,
+        "pres_mix_uniform": "",
         "AUC": data.get("test_auc", ""),
         "ACC": data.get("test_acc", ""),
         "AP": data.get("test_ap", ""),
@@ -131,6 +134,7 @@ def _fail_row(dataset: str, method: str, seed: int, elapsed: float, msg: str) ->
         "dataset": dataset,
         "method": method,
         "seed": seed,
+        "pres_mix_uniform": "",
         "AUC": "",
         "ACC": "",
         "AP": "",
@@ -184,7 +188,7 @@ def main() -> None:
         choices=DATASET_MODULES,
         help="整模块 code_module，对应 data/processed/data_<AAA|BBB|…|GGG>",
     )
-    p.add_argument("--seeds", type=str, default="42,1,2", help="逗号分隔，如 42,1,2")
+    p.add_argument("--seeds", type=str, default="42,2,2026", help="逗号分隔，如 42,2,2026")
     p.add_argument("--n_epoch", type=int, default=50)
     p.add_argument("--bs", type=int, default=800)
     p.add_argument("--lr", type=float, default=1e-3)
@@ -193,7 +197,12 @@ def main() -> None:
     p.add_argument("--drop_out", type=float, default=0.2)
     p.add_argument("--gpu", type=int, default=0)
     p.add_argument("--lambda_tc", type=float, default=0.1, help="仅 ablation_stc")
-    p.add_argument("--pres_mix_uniform", type=float, default=0.35, help="仅 ablation_pres")
+    p.add_argument(
+        "--pres_mix_uniform",
+        type=str,
+        default="0.25,0.35,0.45",
+        help="仅 ablation_pres；逗号分隔多值时对每个 seed 各跑一轮（如 0.25,0.35,0.45）；单值如 0.35 只跑一轮",
+    )
     p.add_argument("--baseline_epochs", type=int, default=50)
     p.add_argument("--baseline_bs", type=int, default=200)
     p.add_argument("--device", type=str, default="cuda", help="baseline 用：cuda 或 cpu")
@@ -208,6 +217,16 @@ def main() -> None:
     seeds = [int(x.strip()) for x in args.seeds.split(",") if x.strip()]
     if not seeds:
         print("错误: --seeds 为空", file=sys.stderr)
+        sys.exit(1)
+
+    pres_mix_parts = [x.strip() for x in str(args.pres_mix_uniform).split(",") if x.strip()]
+    try:
+        pres_mixes = [float(x) for x in pres_mix_parts]
+    except ValueError:
+        print("错误: --pres_mix_uniform 须为逗号分隔的浮点数，如 0.25,0.35,0.45", file=sys.stderr)
+        sys.exit(1)
+    if not pres_mixes:
+        print("错误: --pres_mix_uniform 解析后为空", file=sys.stderr)
         sys.exit(1)
 
     data_name = f"data_{args.dataset}"
@@ -260,7 +279,8 @@ def main() -> None:
 
     rows: List[Dict[str, Any]] = []
 
-    jobs: List[Tuple[str, int, List[str], bool, Optional[Path]]] = []
+    # (method, seed, cmd, use_jsonl, result_json, pres_mix_for_csv)
+    jobs: List[Tuple[str, int, List[str], bool, Optional[Path], Optional[float]]] = []
 
     for seed in seeds:
         jobs.append(
@@ -270,23 +290,26 @@ def main() -> None:
                 [sys.executable, str(ROOT / "main.py"), *_main_train_args(seed)],
                 True,
                 None,
-            )
-        )
-        jobs.append(
-            (
-                "ablation_pres",
-                seed,
-                [
-                    sys.executable,
-                    str(ROOT / "main_ablation_pres_relation.py"),
-                    *_main_train_args(seed),
-                    "--pres_mix_uniform",
-                    str(args.pres_mix_uniform),
-                ],
-                True,
                 None,
             )
         )
+        for pm in pres_mixes:
+            jobs.append(
+                (
+                    "ablation_pres",
+                    seed,
+                    [
+                        sys.executable,
+                        str(ROOT / "main_ablation_pres_relation.py"),
+                        *_main_train_args(seed),
+                        "--pres_mix_uniform",
+                        str(pm),
+                    ],
+                    True,
+                    None,
+                    pm,
+                )
+            )
         jobs.append(
             (
                 "ablation_stc",
@@ -299,6 +322,7 @@ def main() -> None:
                     *_main_train_args(seed),
                 ],
                 True,
+                None,
                 None,
             )
         )
@@ -330,14 +354,17 @@ def main() -> None:
                 "--out_dir",
                 str(out_d),
             ]
-            jobs.append((tag, seed, cmd_b, False, out_d / "result.json"))
+            jobs.append((tag, seed, cmd_b, False, out_d / "result.json", None))
 
-    print(f"共 {len(jobs)} 次运行，结果 -> {out_path}\n")
+    print(f"共 {len(jobs)} 次运行（每 seed：ablation_pres × {len(pres_mixes)}），结果 -> {out_path}\n")
 
-    for method, seed, cmd, use_jsonl, rjson in jobs:
-        print(">>>", method, "seed", seed)
+    for method, seed, cmd, use_jsonl, rjson, pres_mix_csv in jobs:
+        pm_note = f" pres_mix={pres_mix_csv}" if pres_mix_csv is not None else ""
+        print(">>>", method, "seed", seed, pm_note)
         print("   ", " ".join(cmd[:6]), "...")
         row = _run(cmd, dataset=args.dataset, method=method, seed=seed, use_jsonl=use_jsonl, result_json=rjson)
+        if pres_mix_csv is not None:
+            row["pres_mix_uniform"] = pres_mix_csv
         rows.append(row)
 
     with open(out_path, "w", newline="", encoding="utf-8") as f:
