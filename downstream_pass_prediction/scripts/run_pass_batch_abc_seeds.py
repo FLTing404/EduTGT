@@ -43,21 +43,14 @@ DOWNSTREAM_ROOT = REPO_ROOT / "downstream_pass_prediction"
 SCRIPTS = DOWNSTREAM_ROOT / "scripts"
 DEFAULT_MODULES = ("data_AAA", "data_BBB", "data_CCC")
 
-# 固定 seed 的选取与「pretrain 是否优于 scratch」的判据均以 **test_acc** 为主（不看 AUPRC 作为主结论）。
-# 依据 data_AAA/runs_st.jsonl：在已跑过的 E2 网格里，同时满足
-#   max(test_acc | pretrain) > test_acc(scratch)
-# 的 seed 目前只有两个——1681883171（约 0.853 vs scratch 0.817）、940477454（约 0.852 vs 0.843，依赖 freeze/enc 等组合）。
-# 因此默认 --seeds-per-cell=2 与下列二元组对齐。若要第三个划分请 --random-seeds 或 --fixed-seeds 自行指定。
-DEFAULT_FIXED_SEEDS = (1681883171, 940477454)
-
-# 默认 E2（单组）：与历史 CSV 中常用族一致；940477454 在仅 enc0.65/f10 时 test_acc 可能仍低于 scratch，需扩网格见 --e2-presets-json
+# 默认 E2（单组，不做网格）
 E2_BUILTIN_PRESETS: List[Dict[str, Any]] = [
     {
-        "preset": "from_outputs_lr5e-5_f10_h5_enc0.65_p15",
+        "preset": "fixed_lr5e-5_f10_h5_enc0.6_p15",
         "lr": 5e-5,
         "freeze_epochs": 10,
         "head_lr_factor": 5.0,
-        "encoder_lr_scale": 0.65,
+        "encoder_lr_scale": 0.6,
         "patience": 15,
     }
 ]
@@ -245,19 +238,8 @@ def main() -> None:
     ap.add_argument(
         "--seeds-per-cell",
         type=int,
-        default=len(DEFAULT_FIXED_SEEDS),
-        help="每个 dataset 使用的 seed 个数；默认与 DEFAULT_FIXED_SEEDS 长度一致；随机模式见 --random-seeds",
-    )
-    ap.add_argument(
-        "--random-seeds",
-        action="store_true",
-        help="不采用默认固定 seed，改为每模块随机抽取（与旧版一致）",
-    )
-    ap.add_argument(
-        "--fixed-seeds",
-        type=str,
-        default=None,
-        help="逗号分隔的整数 seed，个数须等于 --seeds-per-cell；不传则用脚本内 DEFAULT_FIXED_SEEDS 的前 N 项",
+        default=3,
+        help="每个 dataset 抽取的随机 seed 个数；E1 与每组 E2 **共用**这些 seed",
     )
     ap.add_argument("--device", type=str, default="cpu")
     ap.add_argument(
@@ -363,36 +345,7 @@ def main() -> None:
                 print(f"错误: E2 需要预训练权重但不存在: {pt}", file=sys.stderr)
                 sys.exit(1)
 
-            if args.random_seeds:
-                module_seeds = [draw_seed() for _ in range(n_seeds)]
-            elif args.fixed_seeds:
-                raw_fs = [x.strip() for x in args.fixed_seeds.split(",") if x.strip()]
-                try:
-                    module_seeds = [int(x) for x in raw_fs]
-                except ValueError:
-                    print("错误: --fixed-seeds 须为逗号分隔的整数", file=sys.stderr)
-                    sys.exit(1)
-                if len(module_seeds) != n_seeds:
-                    print(
-                        f"错误: --fixed-seeds 提供 {len(module_seeds)} 个，与 --seeds-per-cell={n_seeds} 不一致",
-                        file=sys.stderr,
-                    )
-                    sys.exit(1)
-            else:
-                if n_seeds > len(DEFAULT_FIXED_SEEDS):
-                    print(
-                        f"错误: 默认固定 seed 仅 {len(DEFAULT_FIXED_SEEDS)} 个，"
-                        f"--seeds-per-cell={n_seeds} 过大；请改用 --random-seeds 或 --fixed-seeds",
-                        file=sys.stderr,
-                    )
-                    sys.exit(1)
-                module_seeds = list(DEFAULT_FIXED_SEEDS[:n_seeds])
-                for s in module_seeds:
-                    used_seeds.add(s)
-                print(
-                    f"[{mod}] 使用固定 seed: {module_seeds}（非随机）",
-                    file=sys.stderr,
-                )
+            module_seeds = [draw_seed() for _ in range(n_seeds)]
 
             for seed in module_seeds:
                 pbar.set_description(f"{mod} seed={seed} split")

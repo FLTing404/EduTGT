@@ -40,9 +40,9 @@ python downstream_pass_prediction/scripts/run_train_st_pass.py --module data_AAA
 
 **指标**：`runs_st.jsonl` 每条含 **`test_acc`**、**`test_auroc`**、**`test_auprc`**、**`test_f1`**（F1 与 ACC 共用 `--acc-threshold` 得预测类别）、**`wall_time_sec`**（整次训练+评测墙钟秒）。**`test_auroc`** 与 ROC 图 AUC 一致。ROC 保存为 **`roc_test_e1_scratch.png` / `roc_test_e2_pretrain.png`**（`--no-roc-plot` 可关）。批处理可用 **`--dump-run-json <路径>`** 将本条指标写入单文件 JSON。
 
-## 一键批跑 AAA / BBB / CCC（E1+E2 × 多 seed）
+## 一键批跑 AAA / BBB / CCC（E1+E2 × 各 3 随机 seed）
 
-在 **`EduTGT/EduTGT`** 下执行；**默认**使用脚本内 **固定 seed**（长度与 `--seeds-per-cell` 一致，当前为 2），**E1 与 E2 共用同一组 seed**：对每个 seed 先 `build_student_splits`，再跑 **1 次 E1(scratch)**，再跑 **1 次 E2(pretrain)**（默认 E2 为脚本内置单组；如需多组请传 `--e2-presets-json`）。传 **`--random-seeds`** 则改为每模块抽取互不重复随机 seed。汇总 **`UTF-8 BOM` CSV**、**`_seeds.json`**、**`_e2_presets.json`**（本次实际使用的 E2 列表）到 **`downstream_pass_prediction/outputs/`**。对比 scratch 与 pretrain 时，**通常以 `test_acc` 作为主指标**（`test_auprc` 等可作补充）。
+在 **`EduTGT/EduTGT`** 下执行；每个模块抽取 **3 个（或 `--seeds-per-cell`）互不重复随机 seed**，**E1 与 E2 共用同一组 seed**：对每个 seed 先 `build_student_splits`，再跑 **1 次 E1(scratch)**，再跑 **1 次 E2(pretrain)**（默认 E2 为脚本内置单组；如需多组请传 `--e2-presets-json`）。汇总 **`UTF-8 BOM` CSV**、**`_seeds.json`**、**`_e2_presets.json`**（本次实际使用的 E2 列表）到 **`downstream_pass_prediction/outputs/`**。
 
 ### 常用命令（含解释）
 
@@ -53,7 +53,7 @@ python downstream_pass_prediction/scripts/run_pass_batch_abc_seeds.py
 
 说明：
 - 不传参数时 `--modules` 默认是 `data_AAA,data_BBB,data_CCC`。
-- `--seeds-per-cell` 默认等于脚本内固定 seed 个数（当前为 `2`）；与 **`--random-seeds`** 或 **`--fixed-seeds`** 配合使用。
+- `--seeds-per-cell` 默认是 `3`，即每个数据集随机取 3 个 seed。
 - E2 默认使用脚本内置单组预设（不是从 yaml 动态枚举）。
 
 ```bash
