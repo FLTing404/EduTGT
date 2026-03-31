@@ -3,7 +3,12 @@
 不改动 model.py；预训练 / 保存路径与 main 区分（*_stc）。
 """
 import argparse
+import os
 import sys
+
+_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if _root not in sys.path:
+    sys.path.insert(0, _root)
 
 _stc_p = argparse.ArgumentParser(add_help=False)
 _stc_p.add_argument("--lambda_tc", type=float, default=0.1, help="同学生时序一致性项权重")

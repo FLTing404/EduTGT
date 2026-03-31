@@ -1,3 +1,10 @@
+import os
+import sys
+
+_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if _root not in sys.path:
+    sys.path.insert(0, _root)
+
 from utils import *
 import pandas as pd
 from sampling import *
