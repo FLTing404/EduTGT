@@ -1,0 +1,31 @@
+{
+  "repository": "https://github.com/pykt-team/pykt-toolkit",
+  "commit": "77c3e90fdb807542194b989656ccac10e5d92e12",
+  "license": "MIT",
+  "files": {
+    "akt.py": {
+      "upstream_path": "pykt/models/akt.py",
+      "url": "https://raw.githubusercontent.com/pykt-team/pykt-toolkit/77c3e90fdb807542194b989656ccac10e5d92e12/pykt/models/akt.py",
+      "upstream_sha256": "bba6eef192264035020e723ee5169865718b8fbec6f4373073ce0514a55f4ce9",
+      "vendored_sha256": "330534e24a6643138d557b1ca5212ac23c9fd89bf0dd7e6df0314205fa308e20"
+    },
+    "simplekt.py": {
+      "upstream_path": "pykt/models/simplekt.py",
+      "url": "https://raw.githubusercontent.com/pykt-team/pykt-toolkit/77c3e90fdb807542194b989656ccac10e5d92e12/pykt/models/simplekt.py",
+      "upstream_sha256": "049d583430aa5ee3caed8846382e3762c90a544a8d93b230573c8f7028a4f082",
+      "vendored_sha256": "1c396c2b6fbb29de34a7d9a404c0098970b38e149d4873747d6bbc22cc75de78"
+    },
+    "utils.py": {
+      "upstream_path": "pykt/models/utils.py",
+      "url": "https://raw.githubusercontent.com/pykt-team/pykt-toolkit/77c3e90fdb807542194b989656ccac10e5d92e12/pykt/models/utils.py",
+      "upstream_sha256": "7e98c9dbd660ad367e4b8798ff7195f9c48d96429695362771c8abebc3ca3c37",
+      "vendored_sha256": "7e98c9dbd660ad367e4b8798ff7195f9c48d96429695362771c8abebc3ca3c37"
+    },
+    "LICENSE": {
+      "upstream_path": "LICENSE",
+      "url": "https://raw.githubusercontent.com/pykt-team/pykt-toolkit/77c3e90fdb807542194b989656ccac10e5d92e12/LICENSE",
+      "upstream_sha256": "f5f95519463643ffbf9cf2892a1201c6d1d27b2effc5970935e6cd28605b3e87",
+      "vendored_sha256": "f5f95519463643ffbf9cf2892a1201c6d1d27b2effc5970935e6cd28605b3e87"
+    }
+  }
+}

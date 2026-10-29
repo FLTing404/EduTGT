@@ -1,0 +1,73 @@
+{
+  "result": {
+    "best_valid_loss": 0.3112651573125191,
+    "class_counts": {
+      "correct": 6889,
+      "incorrect": 303
+    },
+    "class_weights": {
+      "correct": 1.0,
+      "incorrect": 1.0
+    },
+    "decision_threshold": 0.7,
+    "device": "mps",
+    "elapsed_seconds": 0.8166599273681641,
+    "history": [
+      {
+        "accuracy": 0.9553789731051344,
+        "auc": 0.5255830463018958,
+        "balanced_accuracy": 0.5,
+        "brier": 0.07670601666830022,
+        "ece": 0.17971790656629577,
+        "epoch": 1,
+        "f1": 0.9771803688652704,
+        "incorrect_f1": 0.0,
+        "incorrect_pr_auc": 0.05061327078962022,
+        "incorrect_precision": 0.0,
+        "incorrect_recall": 0.0,
+        "learning_rate": 0.001,
+        "macro_f1": 0.4885901844326352,
+        "mcc": 0.0,
+        "pr_auc": 0.9614239596882539,
+        "precision": 0.9553789731051344,
+        "recall": 1.0,
+        "train_loss": 0.7619248606571234,
+        "valid_loss": 0.3112651573125191
+      }
+    ],
+    "model": "fchgnn",
+    "parameters": 102060,
+    "sequence_counts": {
+      "test": 225,
+      "train": 1050,
+      "valid": 225
+    },
+    "threshold_objective": "mcc",
+    "validation": {
+      "accuracy": 0.9125916870415648,
+      "auc": 0.5255830463018958,
+      "balanced_accuracy": 0.5233130877571232,
+      "brier": 0.07670601715913775,
+      "ece": 0.17971788740245523,
+      "f1": 0.9540930979133226,
+      "incorrect_f1": 0.08917197452229299,
+      "incorrect_pr_auc": 0.05061327078962022,
+      "incorrect_precision": 0.08333333333333333,
+      "incorrect_recall": 0.0958904109589041,
+      "macro_f1": 0.5216325362178078,
+      "mcc": 0.04361995485184776,
+      "pr_auc": 0.9614240003348422,
+      "precision": 0.9574742268041238,
+      "recall": 0.9507357645553423
+    },
+    "validation_diagnostics": {
+      "mean_uncertainty": 0.34197476506233215,
+      "mean_uncertainty_correct": 0.34203484654426575,
+      "mean_uncertainty_error": 0.34068673849105835
+    }
+  },
+  "settings": {
+    "threshold_objective": "mcc"
+  },
+  "stage": "threshold_mcc"
+}

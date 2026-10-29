@@ -1,0 +1,238 @@
+{
+  "dataset": "NIPS2020 Task 3/4 original CSV subset",
+  "analysis_method": "Full read-only CSV scan; training counts use train_task_3_4.csv; training dates join answer metadata via AnswerId; no processed datasets are saved",
+  "training": {
+    "rows": 1382727,
+    "users": 4918,
+    "questions": 948,
+    "unique_answer_ids": 1382727,
+    "duplicate_user_question_rows": 0,
+    "correct": 742983,
+    "incorrect": 639744,
+    "correct_rate": 0.5373316641679811,
+    "incorrect_rate": 0.4626683358320189,
+    "label_values": [
+      0,
+      1
+    ],
+    "correctness_vs_answer_choice_mismatches": 0,
+    "answers_per_user_min": 50,
+    "answers_per_user_median": 239.0,
+    "answers_per_user_mean": 281.1563643757625,
+    "answers_per_user_max": 827,
+    "date_answered_min": "2019-09-06T14:05:00",
+    "date_answered_max": "2020-05-01T08:33:00",
+    "date_answered_missing_rows": 0,
+    "same_user_same_minute_extra_rows": 666111,
+    "missing_question_metadata_ids": 0,
+    "missing_student_metadata_ids": 0
+  },
+  "metadata": {
+    "answer_metadata_rows": 1508917,
+    "question_metadata_rows": 948,
+    "student_metadata_rows": 6148,
+    "subject_metadata_rows": 388,
+    "answer_metadata_date_min": "2019-09-06T14:05:00",
+    "answer_metadata_date_max": "2020-05-01T08:33:00",
+    "answer_metadata_missing_date_rows": 0,
+    "raw_subject_tags_unique": 86,
+    "raw_subject_tag_count_min": 4,
+    "raw_subject_tag_count_max": 6,
+    "raw_subject_tag_count_histogram": {
+      "4": 934,
+      "5": 12,
+      "6": 2
+    },
+    "questions_with_multiple_raw_subject_tags": 948,
+    "leaf_subject_tags_unique": 57,
+    "leaf_subject_tag_count_histogram": {
+      "1": 934,
+      "2": 14
+    },
+    "questions_with_multiple_leaf_subject_tags": 14,
+    "referenced_subject_ids_missing_from_tree": [],
+    "subject_levels": {
+      "0": 2,
+      "1": 9,
+      "2": 69,
+      "3": 308
+    },
+    "subject_tag_semantics": "SubjectId is a list containing mathematics topics at several hierarchy levels. Raw multiple tags include ancestors; leaf counts remove any tag that is an ancestor of another tag on the same question."
+  },
+  "files": [
+    {
+      "member": "raw/data/metadata/answer_metadata_task_3_4.csv",
+      "rows": 1508917,
+      "columns": [
+        "AnswerId",
+        "DateAnswered",
+        "Confidence",
+        "GroupId",
+        "QuizId",
+        "SchemeOfWorkId"
+      ],
+      "bytes": 73137422
+    },
+    {
+      "member": "raw/data/metadata/question_metadata_task_3_4.csv",
+      "rows": 948,
+      "columns": [
+        "QuestionId",
+        "SubjectId"
+      ],
+      "bytes": 22789
+    },
+    {
+      "member": "raw/data/metadata/student_metadata_task_3_4.csv",
+      "rows": 6148,
+      "columns": [
+        "UserId",
+        "Gender",
+        "DateOfBirth",
+        "PremiumPupil"
+      ],
+      "bytes": 133215
+    },
+    {
+      "member": "raw/data/metadata/subject_metadata.csv",
+      "rows": 388,
+      "columns": [
+        "SubjectId",
+        "Name",
+        "ParentId",
+        "Level"
+      ],
+      "bytes": 13527
+    },
+    {
+      "member": "raw/data/test_data/quality_response_remapped_private.csv",
+      "rows": 25,
+      "columns": [
+        "Unnamed: 0.1",
+        "Unnamed: 0",
+        "left",
+        "right",
+        "T1_ALR",
+        "T2_CL",
+        "T3_GF",
+        "T4_MQ",
+        "T5_NS"
+      ],
+      "bytes": 683
+    },
+    {
+      "member": "raw/data/test_data/quality_response_remapped_public.csv",
+      "rows": 25,
+      "columns": [
+        "Unnamed: 0.1",
+        "Unnamed: 0",
+        "left",
+        "right",
+        "T1_ALR",
+        "T2_CL",
+        "T3_GF",
+        "T4_MQ",
+        "T5_NS"
+      ],
+      "bytes": 691
+    },
+    {
+      "member": "raw/data/test_data/test_private_task_4.csv",
+      "rows": 51299,
+      "columns": [
+        "QuestionId",
+        "UserId",
+        "AnswerId",
+        "IsCorrect",
+        "CorrectAnswer",
+        "AnswerValue",
+        "IsTarget"
+      ],
+      "bytes": 1281027,
+      "is_correct_value_counts": {
+        "0": 22473,
+        "1": 28826
+      }
+    },
+    {
+      "member": "raw/data/test_data/test_private_task_4_more_splits.csv",
+      "rows": 51299,
+      "columns": [
+        "QuestionId",
+        "UserId",
+        "AnswerId",
+        "IsCorrect",
+        "CorrectAnswer",
+        "AnswerValue",
+        "IsTarget_0",
+        "IsTarget_1",
+        "IsTarget_2",
+        "IsTarget_3",
+        "IsTarget_4",
+        "IsTarget_5",
+        "IsTarget_6",
+        "IsTarget_7",
+        "IsTarget_8",
+        "IsTarget_9"
+      ],
+      "bytes": 2204510,
+      "is_correct_value_counts": {
+        "0": 22473,
+        "1": 28826
+      }
+    },
+    {
+      "member": "raw/data/test_data/test_public_task_4_more_splits.csv",
+      "rows": 74891,
+      "columns": [
+        "QuestionId",
+        "UserId",
+        "AnswerId",
+        "IsCorrect",
+        "CorrectAnswer",
+        "AnswerValue",
+        "IsTarget_0",
+        "IsTarget_1",
+        "IsTarget_2",
+        "IsTarget_3",
+        "IsTarget_4",
+        "IsTarget_5",
+        "IsTarget_6",
+        "IsTarget_7",
+        "IsTarget_8",
+        "IsTarget_9"
+      ],
+      "bytes": 3217819,
+      "is_correct_value_counts": {
+        "0": 34153,
+        "1": 40738
+      }
+    },
+    {
+      "member": "raw/data/train_data/train_task_3_4.csv",
+      "rows": 1382727,
+      "columns": [
+        "QuestionId",
+        "UserId",
+        "AnswerId",
+        "IsCorrect",
+        "CorrectAnswer",
+        "AnswerValue"
+      ],
+      "bytes": 31731601,
+      "is_correct_value_counts": {
+        "0": 639744,
+        "1": 742983
+      }
+    }
+  ],
+  "cautions": [
+    "Official competition Task 3/4 is question-quality assessment and active question selection, rather than a canonical next-event KT benchmark.",
+    "The release keeps only the latest answer per (UserId, QuestionId); it omits earlier repeated attempts.",
+    "DateAnswered is rounded to minute precision; tied timestamps cannot reconstruct a unique within-minute sequence.",
+    "Task 1/2 and Task 3/4 IDs are anonymized separately and must not be joined.",
+    "SubjectId includes a hierarchy route; multiple raw topic IDs should not automatically be treated as independent leaf knowledge components.",
+    "Competition public/private test files preserve their original labels and masks. Use an explicit student/time split for a new KT experiment.",
+    "The current project training pipeline has not been changed to consume this dataset."
+  ]
+}

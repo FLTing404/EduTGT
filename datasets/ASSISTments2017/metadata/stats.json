@@ -1,0 +1,453 @@
+{
+  "schema_version": 1,
+  "source_type": "raw_unmodified_mirror_archive",
+  "csv_member": "anonymized_full_release_competition_dataset.csv",
+  "columns": [
+    "studentId",
+    "MiddleSchoolId",
+    "InferredGender",
+    "SY ASSISTments Usage",
+    "AveKnow",
+    "AveCarelessness",
+    "AveCorrect",
+    "NumActions",
+    "AveResBored",
+    "AveResEngcon",
+    "AveResConf",
+    "AveResFrust",
+    "AveResOfftask",
+    "AveResGaming",
+    "action_num",
+    "skill",
+    "problemId",
+    "problemType",
+    "assignmentId",
+    "assistmentId",
+    "startTime",
+    "endTime",
+    "timeTaken",
+    "correct",
+    "original",
+    "hint",
+    "hintCount",
+    "hintTotal",
+    "scaffold",
+    "bottomHint",
+    "attemptCount",
+    "frIsHelpRequest",
+    "frPast5HelpRequest",
+    "frPast8HelpRequest",
+    "stlHintUsed",
+    "past8BottomOut",
+    "totalFrPercentPastWrong",
+    "totalFrPastWrongCount",
+    "frPast5WrongCount",
+    "frPast8WrongCount",
+    "totalFrTimeOnSkill",
+    "timeSinceSkill",
+    "frWorkingInSchool",
+    "totalFrAttempted",
+    "totalFrSkillOpportunities",
+    "responseIsFillIn",
+    "responseIsChosen",
+    "endsWithScaffolding",
+    "endsWithAutoScaffolding",
+    "frTimeTakenOnScaffolding",
+    "frTotalSkillOpportunitiesScaffolding",
+    "totalFrSkillOpportunitiesByScaffolding",
+    "frIsHelpRequestScaffolding",
+    "timeGreater5Secprev2wrong",
+    "sumRight",
+    "helpAccessUnder2Sec",
+    "timeGreater10SecAndNextActionRight",
+    "consecutiveErrorsInRow",
+    "sumTime3SDWhen3RowRight",
+    "sumTimePerSkill",
+    "totalTimeByPercentCorrectForskill",
+    "Prev5count",
+    "timeOver80",
+    "manywrong",
+    "confidence(BORED)",
+    "confidence(CONCENTRATING)",
+    "confidence(CONFUSED)",
+    "confidence(FRUSTRATED)",
+    "confidence(OFF TASK)",
+    "confidence(GAMING)",
+    "RES_BORED",
+    "RES_CONCENTRATING",
+    "RES_CONFUSED",
+    "RES_FRUSTRATED",
+    "RES_OFFTASK",
+    "RES_GAMING",
+    "Ln-1",
+    "Ln",
+    "MCAS",
+    "Enrolled",
+    "Selective",
+    "isSTEM"
+  ],
+  "column_count": 82,
+  "raw_records": 942816,
+  "malformed_field_count_rows": 0,
+  "unique_students": 1709,
+  "unique_problems": 3162,
+  "unique_skill_tags_including_empty": 102,
+  "unique_nonempty_skill_tags": 102,
+  "missing_core_fields": {},
+  "correct_raw_value_distribution": [
+    {
+      "raw_value": "0",
+      "count": 591446,
+      "classification": "binary_zero"
+    },
+    {
+      "raw_value": "1",
+      "count": 351370,
+      "classification": "binary_one"
+    }
+  ],
+  "correct_label_semantics_note": "官方描述为 Answer is correct；本档实际编码根据correct列逐值统计，仅0/1纳入二分类，不把其他小数无说明地阈值化。",
+  "original_value_counts": {
+    "1": 249105,
+    "0": 693711
+  },
+  "hint_value_counts": {
+    "1": 312096,
+    "0": 630720
+  },
+  "unique_action_num": 942816,
+  "duplicate_action_num_records": 0,
+  "input_order_startTime_inversions_within_student": 2554,
+  "input_order_equal_startTime_adjacent_within_student": 8176,
+  "unix_startTime_min": 1095421048.0,
+  "unix_startTime_max": 1180218370.0,
+  "sequence_length_raw": {
+    "min": 2,
+    "p25": 238,
+    "median": 441,
+    "p75": 739,
+    "p95": 1370,
+    "max": 3057
+  },
+  "cohorts": {
+    "binary_correct": {
+      "records": 942816,
+      "students": 1709,
+      "problems": 3162,
+      "nonempty_skill_tags": 102,
+      "correct_count": 351370,
+      "incorrect_count": 591446,
+      "correct_rate": 0.37268141397685234,
+      "error_rate": 0.6273185860231477,
+      "skill_count_note": "nonempty_skill_tags包括noskill；有效具名知识点需排除该哨兵值"
+    },
+    "binary_correct_nonempty_skill": {
+      "records": 942816,
+      "students": 1709,
+      "problems": 3162,
+      "nonempty_skill_tags": 102,
+      "correct_count": 351370,
+      "incorrect_count": 591446,
+      "correct_rate": 0.37268141397685234,
+      "error_rate": 0.6273185860231477,
+      "skill_count_note": "nonempty_skill_tags包括noskill；有效具名知识点需排除该哨兵值"
+    },
+    "binary_correct_nonempty_skill_original": {
+      "records": 249105,
+      "students": 1709,
+      "problems": 1183,
+      "nonempty_skill_tags": 86,
+      "correct_count": 107213,
+      "incorrect_count": 141892,
+      "correct_rate": 0.430392806246362,
+      "error_rate": 0.569607193753638,
+      "skill_count_note": "nonempty_skill_tags包括noskill；有效具名知识点需排除该哨兵值"
+    },
+    "non_hint": {
+      "records": 630720,
+      "correct_count": 351352,
+      "incorrect_count": 279368,
+      "correct_rate": 0.5570649416539828,
+      "error_rate": 0.44293505834601726,
+      "note": "仅用于展示提示行为影响；hint=0/original=1过滤不等于严格首答聚合"
+    },
+    "non_hint_original": {
+      "records": 207728,
+      "correct_count": 107212,
+      "incorrect_count": 100516,
+      "correct_rate": 0.5161172302241392,
+      "error_rate": 0.48388276977586075,
+      "note": "仅用于展示提示行为影响；hint=0/original=1过滤不等于严格首答聚合"
+    },
+    "named_skill": {
+      "records": 864713,
+      "students": 1709,
+      "problems": 2210,
+      "named_skill_tags": 101,
+      "correct_count": 317674,
+      "incorrect_count": 547039,
+      "correct_rate": 0.36737507126642016,
+      "error_rate": 0.6326249287335798,
+      "filter": "skill.strip().lower() != noskill and nonempty",
+      "note": "排除未标注技能哨兵值；非提示/主问题过滤仍不等于严格首答聚合"
+    },
+    "named_skill_non_hint": {
+      "records": 570221,
+      "students": 1709,
+      "problems": 2208,
+      "named_skill_tags": 101,
+      "correct_count": 317657,
+      "incorrect_count": 252564,
+      "correct_rate": 0.557076992955363,
+      "error_rate": 0.4429230070446371,
+      "filter": "skill.strip().lower() != noskill and nonempty; hint=0",
+      "note": "排除未标注技能哨兵值；非提示/主问题过滤仍不等于严格首答聚合"
+    },
+    "named_skill_non_hint_original": {
+      "records": 183973,
+      "students": 1708,
+      "problems": 755,
+      "named_skill_tags": 85,
+      "correct_count": 93701,
+      "incorrect_count": 90272,
+      "correct_rate": 0.5093193022889229,
+      "error_rate": 0.4906806977110772,
+      "filter": "skill.strip().lower() != noskill and nonempty; hint=0; original=1",
+      "note": "排除未标注技能哨兵值；非提示/主问题过滤仍不等于严格首答聚合"
+    }
+  },
+  "top_skill_tags": [
+    [
+      "noskill",
+      78103
+    ],
+    [
+      "probability",
+      73183
+    ],
+    [
+      "pattern-finding",
+      45027
+    ],
+    [
+      "area",
+      34308
+    ],
+    [
+      "equation-solving",
+      33966
+    ],
+    [
+      "multiplication",
+      26406
+    ],
+    [
+      "inducing-functions",
+      24849
+    ],
+    [
+      "square-root",
+      24487
+    ],
+    [
+      "symbolization-articulation",
+      22745
+    ],
+    [
+      "pythagorean-theorem",
+      22104
+    ],
+    [
+      "multiplying-decimals",
+      21976
+    ],
+    [
+      "interpreting-linear-equations",
+      20166
+    ],
+    [
+      "reading-graph",
+      19262
+    ],
+    [
+      "substitution",
+      19227
+    ],
+    [
+      "properties-of-geometric-figures",
+      18626
+    ]
+  ],
+  "label_by_original_and_hint": [
+    {
+      "original": "0",
+      "hint": "0",
+      "correct": "0",
+      "count": 178852
+    },
+    {
+      "original": "0",
+      "hint": "0",
+      "correct": "1",
+      "count": 244140
+    },
+    {
+      "original": "0",
+      "hint": "1",
+      "correct": "0",
+      "count": 270702
+    },
+    {
+      "original": "0",
+      "hint": "1",
+      "correct": "1",
+      "count": 17
+    },
+    {
+      "original": "1",
+      "hint": "0",
+      "correct": "0",
+      "count": 100516
+    },
+    {
+      "original": "1",
+      "hint": "0",
+      "correct": "1",
+      "count": 107212
+    },
+    {
+      "original": "1",
+      "hint": "1",
+      "correct": "0",
+      "count": 41376
+    },
+    {
+      "original": "1",
+      "hint": "1",
+      "correct": "1",
+      "count": 1
+    }
+  ],
+  "skill_tags": [
+    "adding-decimals",
+    "addition",
+    "algebra symbolization",
+    "algebraic-manipulation",
+    "application: compare expressions",
+    "application: compare points",
+    "application: find slope in graph",
+    "application: finding percentage of a number",
+    "application: isosceles triangle",
+    "application: multi-column addition",
+    "application: multi-column subtraction",
+    "application: order of operations",
+    "application: read points",
+    "application: simple multiplication",
+    "area",
+    "area-concept",
+    "area-of-circle",
+    "circle-graph",
+    "circumference",
+    "combinatorics",
+    "comparing-fractions",
+    "congruence",
+    "discount",
+    "divide-decimals",
+    "divisibility",
+    "division",
+    "equation-concept",
+    "equation-solving",
+    "equivalent-fractions-decimals-percents",
+    "evaluating-functions",
+    "exponents",
+    "finding-percents",
+    "fraction-decimals-percents",
+    "fraction-division",
+    "fraction-multiplication",
+    "fractions",
+    "g-geometry",
+    "graph interpretation",
+    "graph-shape",
+    "inducing-functions",
+    "inequalities",
+    "inequality-solving",
+    "integers",
+    "interpreting-linear-equations",
+    "interpreting-numberline",
+    "isosceles-triangle",
+    "least-common-multiple",
+    "linear-area-volume-conversion",
+    "m-measurement",
+    "making-sense-of-expressions-and-equations",
+    "mean",
+    "meaning-of-pi",
+    "measurement",
+    "median",
+    "mode",
+    "multiplication",
+    "multiplying-decimals",
+    "multiplying-positive-negative-numbers",
+    "n-number-sense-operations",
+    "noskill",
+    "number-line",
+    "of-means-multiply",
+    "order-of-operations",
+    "ordering-numbers",
+    "p-patterns-relations-algebra",
+    "pattern-finding",
+    "percent-of",
+    "percents",
+    "perimeter",
+    "point-plotting",
+    "prime-number",
+    "probability",
+    "properties-of-geometric-figures",
+    "properties-of-solids",
+    "proportion",
+    "pythagorean-theorem",
+    "rate",
+    "rate-with-distance-and-time",
+    "reading-graph",
+    "reciprocal",
+    "reduce-fraction",
+    "rounding",
+    "scientific-notation",
+    "similar-triangles",
+    "simple-calculation",
+    "slope",
+    "square-root",
+    "statistics",
+    "stem-and-leaf-plot",
+    "substitution",
+    "subtracting-decimals",
+    "subtraction",
+    "sum-of-interior-angles-more-than-3-sides",
+    "sum-of-interior-angles-triangle",
+    "supplementary-angles",
+    "surface-area-and-volume",
+    "symbolization-articulation",
+    "transformations-rotations",
+    "transversals",
+    "triangle-inequality",
+    "unit-conversion",
+    "venn-diagram"
+  ],
+  "unknown_skill_sentinel": {
+    "raw_value": "noskill",
+    "records": 78103,
+    "students_with_sentinel_records": 1038,
+    "problems_with_sentinel_records": 1071,
+    "correct_value_counts": {
+      "1": 33696,
+      "0": 44407
+    },
+    "note": "非空字符串，但表示未标注技能，不计作有效具名知识点"
+  },
+  "unique_named_skill_tags_excluding_noskill": 101,
+  "original_unique_named_skill_tags_excluding_noskill": 85,
+  "skill_count_semantics": {
+    "unique_nonempty_skill_tags": "102包含noskill，非空并不等于已标注知识点",
+    "unique_named_skill_tags_excluding_noskill": "101个具名标签",
+    "future_preprocessing": "显式选择排除noskill记录或保留为未知概念，并记录所用过滤和比例；本次未修改数据"
+  }
+}

@@ -1,0 +1,74 @@
+{
+  "result": {
+    "best_valid_loss": 0.5281900904872306,
+    "class_counts": {
+      "correct": 6889,
+      "incorrect": 303
+    },
+    "class_weights": {
+      "correct": 1.0,
+      "incorrect": 1.0
+    },
+    "decision_threshold": 0.5549999999999999,
+    "device": "mps",
+    "elapsed_seconds": 0.8043241500854492,
+    "history": [
+      {
+        "accuracy": 0.9462102689486552,
+        "auc": 0.7178765808639866,
+        "balanced_accuracy": 0.5147897878158442,
+        "brier": 0.16897679208891617,
+        "ece": 0.3573076382170096,
+        "epoch": 1,
+        "f1": 0.9723096286972939,
+        "incorrect_f1": 0.06382978723404255,
+        "incorrect_pr_auc": 0.14053265781323326,
+        "incorrect_precision": 0.14285714285714285,
+        "incorrect_recall": 0.0410958904109589,
+        "learning_rate": 0.001,
+        "macro_f1": 0.5180697079656682,
+        "mcc": 0.05425464765515312,
+        "pr_auc": 0.9782013623802804,
+        "precision": 0.9566563467492261,
+        "recall": 0.9884836852207294,
+        "train_loss": 0.766819973253501,
+        "valid_loss": 0.5281900904872306
+      }
+    ],
+    "model": "fchgnn",
+    "parameters": 102060,
+    "sequence_counts": {
+      "test": 225,
+      "train": 1050,
+      "valid": 225
+    },
+    "threshold_objective": "mcc",
+    "validation": {
+      "accuracy": 0.8386308068459658,
+      "auc": 0.7178765808639866,
+      "balanced_accuracy": 0.6739585798297969,
+      "brier": 0.16897679143683614,
+      "ece": 0.35730764641446994,
+      "f1": 0.9100817438692098,
+      "incorrect_f1": 0.21428571428571427,
+      "incorrect_pr_auc": 0.14053265781323326,
+      "incorrect_precision": 0.13688212927756654,
+      "incorrect_recall": 0.4931506849315068,
+      "macro_f1": 0.5621837290774621,
+      "mcc": 0.19557062576420214,
+      "pr_auc": 0.9782013886366867,
+      "precision": 0.9730517115804806,
+      "recall": 0.854766474728087
+    },
+    "validation_diagnostics": {
+      "mean_uncertainty": 0.541269063949585,
+      "mean_uncertainty_correct": 0.5404332876205444,
+      "mean_uncertainty_error": 0.5559711456298828
+    }
+  },
+  "settings": {
+    "imbalance_loss": "auc_margin",
+    "threshold_objective": "mcc"
+  },
+  "stage": "auc_margin"
+}

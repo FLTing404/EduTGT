@@ -1,0 +1,80 @@
+,Column name,example,description
+1,ITEST_id,8,a deidentified ID/tag used for identifying an individual student
+2,SY ASSISTments Usage,2004-2005,the academic years the student used ASSISTments
+3,AveKnow,0.35241648,"average student knowledge level (according to Bayesian Knowledge Tracing algorithm -- cf. Corbett & Anderson, 1995)"
+4,AveCarelessness,0.18327565,"average student carelessness (according to San Pedro, Baker, & Rodrigo, 2011 model)"
+5,AveCorrect,0.48390152,average student correctness
+6,NumActions,1056,total number of student actions in system
+7,AveResBored,0.20838904,"average student affect: boredom (see Pardos, Baker, San Pedro, Gowda, & Gowda, 2014)"
+8,AveResEngcon,0.67912589,"average student affect:engaged concentration (see Pardos, Baker, San Pedro, Gowda, & Gowda, 2014)"
+9,AveResConf,0.11590539,"average student affect:confusion (see Pardos, Baker, San Pedro, Gowda, & Gowda, 2014)"
+10,AveResFrust,0.11240808,"average student affect:frustration (see Pardos, Baker, San Pedro, Gowda, & Gowda, 2014)"
+11,AveResOfftask,0.15650305,"average student affect: off task (see Pardos, Baker, San Pedro, Gowda, & Gowda, 2014 and also Baker, 2007)"
+12,AveResGaming,0.196561,"average student affect:gaming the system  (see Pardos, Baker, San Pedro, Gowda, & Gowda, 2014 and also Baker Corbett Koedinger & Wagner, 2004)"
+13,actionId,9950,the unique id of this specific action
+14,skill,properties-of-geometric-figures,"a tag used for identifying the cognitive skill related to the problem (see Razzaq, Heffernan, Feng, & Pardos, 2007)"
+15,problemId,104051118,a unique ID used for identifying a single problem
+16,assignmentId,20405010,a unique ID used for identifying an assignment
+17,assistmentId,104051118,a unique ID used for identifying an assistment (a instance of a multi-part problem)
+18,startTime,1096470301,"when did the student start the problem (UNIX time, seconds)"
+19,endTime,1096470350,"when did the student end the problem (UNIX time, seconds)"
+20,timeTaken,49,Time spent on the current step
+21,correct,0,Answer is correct
+22,original,1,Problem is original not a scaffolding problem
+23,hint,1,Action is a hint response
+24,hintCount,1,Total number of hints requested so far
+25,hintTotal,1,total number of hints requested for the problem
+26,scaffold,0,Problem is a scaffolding problem
+27,bottomHint,0,Bottom-out hint is used
+28,attemptCount,1,Total problems attempted in the tutor so far.
+29,problemType,textfieldquestion,the type of the problem
+30,frIsHelpRequest,1,First response is a help request
+31,frPast5HelpRequest,0,Number of last 5 First responses that included a help request
+32,frPast8HelpRequest,0,Number of last 8 First responses that included a help request
+33,stlHintUsed,0,Second to last hint is used – indicates a hint that gives considerable detail but is not quite bottom-out
+34,past8BottomOut,0,Number of last 8 problems that used the bottom-out hint.
+35,totalFrPercentPastWrong,0,Percent of all past problems that were wrong on this KC.
+36,totalFrPastWrongCount,0,Total first responses wrong attempts in the tutor so far.
+37,frPast5WrongCount,0,Number of last 5 First responses that were wrong
+38,frPast8WrongCount,0,Number of last 8 First responses that were wrong
+39,totalFrTimeOnSkill,0,Total first response time spent on this KC across all problems
+40,timeSinceSkill,0,Time since the current KC was last seen.
+41,frWorkingInSchool,1,First response Working during school hours (between 7:00 am and 3:00 pm)
+42,totalFrAttempted,0,Total first responses attempted in the tutor so far.
+43,totalFrSkillOpportunities,0,Total first response practice opportunities on this KC so far.
+44,responseIsFillIn,0,Response is filled in (No list of answers available)
+45,responseIsChosen,0,"Response is chosen from a list of answers (Multiple choice, etc)."
+46,endsWithScaffolding,0,Problem ends with scaffolding
+47,endsWithAutoScaffolding,0,Problem ends with automatic scaffolding
+48,frTimeTakenOnScaffolding,0,First response time taken on scaffolding problems
+49,frTotalSkillOpportunitiesScaffolding,0,Total first response practice opportunities on this skill so far
+50,totalFrSkillOpportunitiesByScaffolding,0,Total first response scaffolding opportunities for this KC so far
+51,frIsHelpRequestScaffolding,0,First response is a help request Scaffolding
+52,timeGreater5Secprev2wrong,0,Long pauses after 2 Consecutive wrong answers
+53,sumRight,0,
+54,helpAccessUnder2Sec,0,Time spent on help was under 2 seconds
+55,timeGreater10SecAndNextActionRight,0,Long pause after correct answer
+56,consecutiveErrorsInRow,0,Total number of 2 wrong answers in a row across all the problems
+57,sumTime3SDWhen3RowRight,0,
+58,sumTimePerSkill,49,
+59,totalTimeByPercentCorrectForskill,0,Total time spent on this KC across all problems divided by percent correct for the same KC
+60,prev5count,0,
+61,timeOver80,0,
+62,manywrong,0,
+63,confidence(BORED),0.59786477,the confidence of the student affect prediction: bored
+64,confidence(CONCENTRATING),0.23429359,the confidence of the student affect prediction: concecntrating
+65,confidence(CONFUSED),0,the confidence of the student affect prediction: confused
+66,confidence(FRUSTRATED),0,the confidence of the student affect prediction: frustrated 
+67,confidence(OFF TASK),0.83870968,the confidence of the student affect prediction: off task
+68,confidence(GAMING),0.00852182,the confidence of the student affect prediction: gaming
+69,RES_BORED,0.37642746,rescaled of the confidence of the student affect prediction: boredom
+70,RES_CONCENTRATING,0.32031737,rescaled of the confidence of the student affect prediction: concentration
+71,RES_CONFUSED,0,rescaled of the confidence of the student affect prediction: confusion
+72,RES_FRUSTRATED,0,rescaled of the confidence of the student affect prediction: frustration
+73,RES_OFFTASK,0.78558547,rescaled of the confidence of the student affect prediction: off task
+74,RES_GAMING,0.0002642,rescaled of the confidence of the student affect prediction: gaming
+75,Ln-1,0.13,baysian knowledge tracing's knowledge estimate at the previous time step
+76,Ln,0.06119041,baysian knowledge tracing's knowledge estimate at the time step
+,,,
+,schoolID,1,the id (anonymized) of the school the student was in during the year the data was collected
+,MCAS,,"Massachusetts Comprehensive Assessment System test score. In short, this number is the student's state test score (outside ASSISTments) during that year. -999 represents the data is missing"

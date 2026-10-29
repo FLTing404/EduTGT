@@ -1,0 +1,33 @@
+seed: 20260824
+data_root: ../../datasets
+prepared_root: ../artifacts/full/prepared
+artifact_root: ../artifacts/tuned
+datasets:
+  assist12:
+    sample_users: null
+  ednet:
+    sample_users: 5000
+  oulad:
+    sample_users: null
+split:
+  train: 0.70
+  valid: 0.15
+  test: 0.15
+sequence:
+  max_length: 100
+  min_length: 3
+training:
+  models: [fchgnn]
+  epochs: 20
+  batch_size: 128
+  learning_rate: 0.001
+  learning_rate_decay: 0.92
+  weight_decay: 0.00001
+  patience: 4
+  embedding_dim: 64
+  hidden_dim: 128
+  dropout: 0.2
+  hypergraph_layers: 3
+  num_heads: 4
+  num_workers: 0
+  tune_threshold: true

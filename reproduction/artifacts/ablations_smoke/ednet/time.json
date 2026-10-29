@@ -1,0 +1,71 @@
+{
+  "result": {
+    "best_valid_loss": 0.5776961721626983,
+    "decision_threshold": 0.485,
+    "device": "mps",
+    "elapsed_seconds": 3.492180824279785,
+    "history": [
+      {
+        "accuracy": 0.7197604058431636,
+        "auc": 0.6554126588193351,
+        "balanced_accuracy": 0.5281067872271273,
+        "brier": 0.19543532911273814,
+        "ece": 0.04978004055132195,
+        "epoch": 1,
+        "f1": 0.8329994536514296,
+        "learning_rate": 0.001,
+        "mcc": 0.14499716894950102,
+        "pr_auc": 0.8109064810327254,
+        "precision": 0.7219977269857305,
+        "recall": 0.9843333046397521,
+        "train_loss": 0.6399891110566946,
+        "valid_loss": 0.5776961721626983
+      },
+      {
+        "accuracy": 0.7077806980013447,
+        "auc": 0.6892708881166622,
+        "balanced_accuracy": 0.6236181899498627,
+        "brier": 0.19706300178204833,
+        "ece": 0.08518966147343109,
+        "epoch": 2,
+        "f1": 0.8001671891327063,
+        "learning_rate": 0.00092,
+        "mcc": 0.25986612178651763,
+        "pr_auc": 0.8294592689854381,
+        "precision": 0.777705557361066,
+        "recall": 0.823964879056555,
+        "train_loss": 0.5622525097477004,
+        "valid_loss": 0.5848535729258985
+      }
+    ],
+    "model": "fchgnn",
+    "parameters": 450828,
+    "sequence_counts": {
+      "test": 415,
+      "train": 1688,
+      "valid": 411
+    },
+    "validation": {
+      "accuracy": 0.718721349550761,
+      "auc": 0.6554126497467441,
+      "balanced_accuracy": 0.5222619156144518,
+      "brier": 0.19543532932146443,
+      "ece": 0.04978004369166813,
+      "f1": 0.8332729512354177,
+      "mcc": 0.13482226530343744,
+      "pr_auc": 0.8109064837796436,
+      "precision": 0.7194244604316546,
+      "recall": 0.9899285529826978
+    }
+  },
+  "settings": {
+    "contrastive_weight": 0.0,
+    "dynamic_scale_fusion": false,
+    "guided_diffusion": false,
+    "hypergraph_attention": false,
+    "multi_concept": false,
+    "time_aware": true,
+    "uncertainty_enabled": false
+  },
+  "stage": "time"
+}

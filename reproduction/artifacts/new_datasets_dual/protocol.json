@@ -1,0 +1,95 @@
+{
+  "config": "/Users/flt/Documents/study/project/教育数据集/reproduction/configs/new_datasets_dual.yaml",
+  "config_snapshot": {
+    "artifact_root": "/Users/flt/Documents/study/project/教育数据集/reproduction/artifacts/new_datasets_dual",
+    "data_root": "/Users/flt/Documents/study/project/教育数据集/datasets",
+    "datasets": {
+      "assist17": {
+        "sample_users": null
+      },
+      "nips34": {
+        "sample_users": null,
+        "tie_order": "answer_id"
+      },
+      "xes3g5m": {
+        "sample_users": 5000
+      }
+    },
+    "prepared_root": "/Users/flt/Documents/study/project/教育数据集/reproduction/artifacts/new_datasets_dual/prepared",
+    "seed": 20261004,
+    "sequence": {
+      "max_length": 100,
+      "min_length": 3
+    },
+    "split": {
+      "test": 0.15,
+      "train": 0.7,
+      "valid": 0.15
+    },
+    "training": {
+      "batch_size": 128,
+      "dropout": 0.2,
+      "early_stopping_metric": "auc",
+      "embedding_dim": 64,
+      "epochs": 8,
+      "hidden_dim": 128,
+      "hypergraph_layers": 3,
+      "learning_rate": 0.001,
+      "learning_rate_decay": 0.92,
+      "models": [
+        "dkt",
+        "akt",
+        "simplekt",
+        "fchgnn"
+      ],
+      "num_heads": 4,
+      "num_workers": 0,
+      "patience": 3,
+      "progress": true,
+      "threshold_objective": "mcc",
+      "threshold_search": "exact",
+      "tune_threshold": true,
+      "weight_decay": 1e-05
+    }
+  },
+  "datasets": [
+    "xes3g5m",
+    "assist17",
+    "nips34"
+  ],
+  "date": "2026-10-04",
+  "fixed_split_seed": 20261004,
+  "information": "base models use representative first leaf KC; enhanced and noHG both receive all KC metadata, FM, difficulty, contrastive/time; noHG only removes propagation layers",
+  "primary_loss": "BCE (AKT retains official Rasch L2); weighted FC-HGNN is separate train-frequency loss control",
+  "selection": "all validation-only training completes before frozen selection and any final test",
+  "sota_scope": "controlled feasibility comparison to author-official AKT/simpleKT; not a published SOTA reproduction",
+  "source_sha256": {
+    "src/fchgnn_repro/__init__.py": "f135ba421eae25f8ff400d2c36d7109748462ac661a7df5c6dbcd9270749fafe",
+    "src/fchgnn_repro/bkt.py": "a255e83b1629dd227d4ca3af4a2340fbc2fe9fa4b1f867d44c550475a5dc12de",
+    "src/fchgnn_repro/data.py": "95131af984e6337c8d5f491827d5c334ffb304fb0ed83c7853a5f9980c553b31",
+    "src/fchgnn_repro/models.py": "e1a7622806875f35635daa82369c48c84e165ffce68fb207d76ef9a343014c67",
+    "src/fchgnn_repro/modern_baselines.py": "869461efe6dc72f59aec654b250ff582b3fd4854da48f5d306ccf74be7251639",
+    "src/fchgnn_repro/preprocess.py": "4deba942c92c39d2e9389a92a7e7029f75aa3c401a608bf2ba127bfc3fa8fe7a",
+    "src/fchgnn_repro/train.py": "f7cc359af98d27bd203401dc8791e8898b638c28ebe25ea7da7c12da5b08d63d",
+    "src/fchgnn_repro/utils.py": "c6b966d8ca3a51401894a9a2ae319ee40b8e45ea1f2d68b9f52d17cbb0d9118c",
+    "src/fchgnn_repro/vendor/__init__.py": "8a154444df69a17540af53a1b895375a90a19db34ea23f607facdbae663f279d",
+    "src/fchgnn_repro/vendor/pykt/__init__.py": "c9610a0b735337f3761a8ea180281de3d5fa4502bf1a8405b28be1ad36d0faab",
+    "src/fchgnn_repro/vendor/pykt/akt.py": "330534e24a6643138d557b1ca5212ac23c9fd89bf0dd7e6df0314205fa308e20",
+    "src/fchgnn_repro/vendor/pykt/simplekt.py": "1c396c2b6fbb29de34a7d9a404c0098970b38e149d4873747d6bbc22cc75de78",
+    "src/fchgnn_repro/vendor/pykt/utils.py": "7e98c9dbd660ad367e4b8798ff7195f9c48d96429695362771c8abebc3ca3c37"
+  },
+  "training_seeds": [
+    20261004,
+    20261005,
+    20261006
+  ],
+  "variants": [
+    "dkt",
+    "akt",
+    "simplekt",
+    "fchgnn",
+    "fchgnn_enhanced",
+    "fchgnn_nohg",
+    "fchgnn_weighted"
+  ]
+}

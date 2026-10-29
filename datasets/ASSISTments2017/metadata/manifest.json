@@ -1,0 +1,92 @@
+{
+  "dataset": "ASSISTments2017",
+  "retrieved_date": "2026-10-04",
+  "timezone": "Asia/Shanghai",
+  "download_url": "https://base.ustc.edu.cn/data/ASSISTment/anonymized_full_release_competition_dataset.zip",
+  "source_type": "USTC/EduData public academic mirror",
+  "official_landing_page": "https://sites.google.com/view/assistmentsdatamining/dataset",
+  "mirror_mapping_reference": "https://edudata.readthedocs.io/en/doc/_modules/EduData/DataSet/download_data/download_data.html",
+  "local_path": "raw/anonymized_full_release_competition_dataset.zip",
+  "bytes": 68263324,
+  "sha256": "bd8ca6eb7d2c3bc3bc4236754678e516f09748f588377e7eb5b14080e474097d",
+  "zip_crc_full_check": "passed",
+  "archive_members": [
+    {
+      "name": "anonymized_full_release_competition_dataset.csv",
+      "uncompressed_bytes": 548528619,
+      "compressed_bytes": 68263096
+    }
+  ],
+  "license": {
+    "type": "ASSISTments research terms; not Creative Commons",
+    "original_2017_terms_url": "http://www.assistmentstestbed.org/the-data/termsofusefordata",
+    "original_terms_status": "unreachable on 2026-10-04; exact 2017 text not verified",
+    "accessible_official_historical_terms": [
+      "https://sites.google.com/site/assistmentstestbed/4-analyze-data/terms-of-use-for-data",
+      "https://sites.google.com/site/assistmentsdata/termsofuseforusingdata"
+    ],
+    "reference_restrictions": [
+      "no attempts to identify students",
+      "delete and report inadvertently identifying information",
+      "no third-party redistribution",
+      "noncommercial research use",
+      "cite and acknowledge ASSISTments",
+      "published algorithms/code disclosure required by ASSISTmentsData reference terms"
+    ],
+    "local_use": "local noncommercial project only; raw student data not republished"
+  },
+  "validation": {
+    "csv_records": 942816,
+    "students": 1709,
+    "problems": 3162,
+    "skill_tags": 102,
+    "label_field": "correct",
+    "observed_raw_label_values": {
+      "0": 591446,
+      "1": 351370
+    },
+    "stats_path": "metadata/stats.json",
+    "named_skill_tags_excluding_noskill": 101,
+    "noskill_records": 78103,
+    "skill_count_note": "skill_tags=102为非空原始标签，包含1个noskill未标注技能哨兵值",
+    "named_skill_cohort": {
+      "records": 864713,
+      "students": 1709,
+      "problems": 2210,
+      "named_skill_tags": 101,
+      "correct_count": 317674,
+      "incorrect_count": 547039,
+      "correct_rate": 0.36737507126642016,
+      "error_rate": 0.6326249287335798,
+      "filter": "skill.strip().lower() != noskill and nonempty",
+      "note": "排除未标注技能哨兵值；非提示/主问题过滤仍不等于严格首答聚合"
+    }
+  },
+  "metadata_snapshots": [
+    {
+      "path": "metadata/OFFICIAL_ASSISTMENTSDATA_TERMS.html",
+      "bytes": 144905,
+      "sha256": "d6eeefaa22c6971cec1a4cedf2c243ef91f183268fad5f36a2797c58bc779800"
+    },
+    {
+      "path": "metadata/OFFICIAL_COLUMN_DESCRIPTION.csv",
+      "bytes": 6508,
+      "sha256": "252570ea63d63f51d54be90969a019088ea4c3c657423c94baf22e1076f8d5e4"
+    },
+    {
+      "path": "metadata/OFFICIAL_COMPETITION_PAGE.html",
+      "bytes": 138672,
+      "sha256": "8fa5f1c43dd1af0208f96f72dd4a34ed5d9da3b0f068f9efe99dc4d5b4e129be"
+    },
+    {
+      "path": "metadata/OFFICIAL_DATASET_PAGE.html",
+      "bytes": 125369,
+      "sha256": "c5e32a79ba14b5629fc5e2f010a71b3ad0c43069690e02d138942d6eae31ad53"
+    },
+    {
+      "path": "metadata/OFFICIAL_LEGACY_TESTBED_DATA_TERMS.html",
+      "bytes": 152185,
+      "sha256": "7d6efb411738ffab20d1d71a6b2326597744fb0711a11f2c4b4ff50a7217d1cd"
+    }
+  ]
+}

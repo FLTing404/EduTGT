@@ -1,0 +1,126 @@
+--- upstream/akt.py
++++ vendor/akt.py
+@@ -7,7 +7,7 @@
+ from enum import IntEnum
+ import numpy as np
+ 
+-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
++# Device allocations follow the input tensors; see PATCHES.md.
+ 
+ class Dim(IntEnum):
+     batch = 0
+@@ -77,7 +77,7 @@
+             qa_embed_data = self.qa_embed(target)+q_embed_data
+         return q_embed_data, qa_embed_data
+ 
+-    def forward(self, q_data, target, pid_data=None, qtest=False):
++    def forward(self, q_data, target, pid_data=None, qtest=False, return_logits=False):
+         emb_type = self.emb_type
+         # Batch First
+         if emb_type.startswith("qid"):
+@@ -110,7 +110,7 @@
+         concat_q = torch.cat([d_output, q_embed_data], dim=-1)
+         output = self.out(concat_q).squeeze(-1)
+         m = nn.Sigmoid()
+-        preds = m(output)
++        preds = output if return_logits else m(output)
+         if not qtest:
+             return preds, c_reg_loss
+         else:
+@@ -210,7 +210,7 @@
+         seqlen, batch_size = query.size(1), query.size(0)
+         nopeek_mask = np.triu(
+             np.ones((1, 1, seqlen, seqlen)), k=mask).astype('uint8')
+-        src_mask = (torch.from_numpy(nopeek_mask) == 0).to(device)
++        src_mask = (torch.from_numpy(nopeek_mask) == 0).to(query.device)
+         if mask == 0:  # If 0, zero-padding is needed.
+             # Calls block.masked_attn_head.forward() method
+             query2 = self.masked_attn_head(
+@@ -326,7 +326,7 @@
+     def pad_zero(self, scores, bs, dim, zero_pad):
+         if zero_pad:
+             # # need: torch.Size([64, 1, 200]), scores: torch.Size([64, 200, 200]), v: torch.Size([64, 200, 32])
+-            pad_zero = torch.zeros(bs, 1, dim).to(device)
++            pad_zero = scores.new_zeros(bs, 1, dim)
+             scores = torch.cat([pad_zero, scores[:, 0:-1, :]], dim=1) # 所有v后置一位
+         return scores
+ 
+@@ -340,19 +340,19 @@
+         math.sqrt(d_k)  # BS, 8, seqlen, seqlen
+     bs, head, seqlen = scores.size(0), scores.size(1), scores.size(2)
+ 
+-    x1 = torch.arange(seqlen).expand(seqlen, -1).to(device)
++    x1 = torch.arange(seqlen, device=q.device).expand(seqlen, -1)
+     x2 = x1.transpose(0, 1).contiguous()
+ 
+     with torch.no_grad():
+         scores_ = scores.masked_fill(mask == 0, -1e32)
+         scores_ = F.softmax(scores_, dim=-1)  # BS,8,seqlen,seqlen
+-        scores_ = scores_ * mask.float().to(device) # 结果和上一步一样
++        scores_ = scores_ * mask.to(dtype=scores.dtype, device=scores.device) # 结果和上一步一样
+         distcum_scores = torch.cumsum(scores_, dim=-1)  # bs, 8, sl, sl
+         disttotal_scores = torch.sum(
+             scores_, dim=-1, keepdim=True)  # bs, 8, sl, 1 全1
+         # print(f"distotal_scores: {disttotal_scores}")
+         position_effect = torch.abs(
+-            x1-x2)[None, None, :, :].type(torch.FloatTensor).to(device)  # 1, 1, seqlen, seqlen 位置差值
++            x1-x2)[None, None, :, :].to(dtype=scores.dtype, device=scores.device)  # 1, 1, seqlen, seqlen 位置差值
+         # bs, 8, sl, sl positive distance
+         dist_scores = torch.clamp(
+             (disttotal_scores-distcum_scores)*position_effect, min=0.) # score <0 时，设置为0
+@@ -375,7 +375,7 @@
+     # print(f"before zero pad scores: {scores.shape}")
+     # print(zero_pad)
+     if zero_pad:
+-        pad_zero = torch.zeros(bs, head, 1, seqlen).to(device)
++        pad_zero = scores.new_zeros(bs, head, 1, seqlen)
+         scores = torch.cat([pad_zero, scores[:, :, 1:, :]], dim=2) # 第一行score置0
+     # print(f"after zero pad scores: {scores}")
+     scores = dropout(scores)
+--- upstream/simplekt.py
++++ vendor/simplekt.py
+@@ -11,7 +11,7 @@
+         MultiLabelMarginLoss, MultiLabelSoftMarginLoss, CrossEntropyLoss, BCELoss, MultiheadAttention
+ from torch.nn.functional import one_hot, cross_entropy, multilabel_margin_loss, binary_cross_entropy
+ 
+-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
++# Device allocations follow the input tensors; see PATCHES.md.
+ 
+ class Dim(IntEnum):
+     batch = 0
+@@ -94,7 +94,7 @@
+         pad_attn_mask = pad_attn_mask.expand(batch_size, l, l)
+         return pad_attn_mask.repeat(self.nhead, 1, 1)
+ 
+-    def forward(self, dcur, qtest=False, train=False):
++    def forward(self, dcur, qtest=False, train=False, return_logits=False):
+         q, c, r = dcur["qseqs"].long(), dcur["cseqs"].long(), dcur["rseqs"].long()
+         qshft, cshft, rshft = dcur["shft_qseqs"].long(), dcur["shft_cseqs"].long(), dcur["shft_rseqs"].long()
+         pid_data = torch.cat((q[:,0:1], qshft), dim=1)
+@@ -134,7 +134,7 @@
+             concat_q = torch.cat([d_output, q_embed_data], dim=-1)
+             output = self.out(concat_q).squeeze(-1)
+             m = nn.Sigmoid()
+-            preds = m(output)
++            preds = output if return_logits else m(output)
+ 
+         if train:
+             return preds, y2, y3
+@@ -230,7 +230,7 @@
+         seqlen, batch_size = query.size(1), query.size(0)
+         nopeek_mask = np.triu(
+             np.ones((1, 1, seqlen, seqlen)), k=mask).astype('uint8')
+-        src_mask = (torch.from_numpy(nopeek_mask) == 0).to(device)
++        src_mask = (torch.from_numpy(nopeek_mask) == 0).to(query.device)
+         if mask == 0:  # If 0, zero-padding is needed.
+             # Calls block.masked_attn_head.forward() method
+             query2 = self.masked_attn_head(
+@@ -329,7 +329,7 @@
+     # print(f"before zero pad scores: {scores.shape}")
+     # print(zero_pad)
+     if zero_pad:
+-        pad_zero = torch.zeros(bs, head, 1, seqlen).to(device)
++        pad_zero = scores.new_zeros(bs, head, 1, seqlen)
+         scores = torch.cat([pad_zero, scores[:, :, 1:, :]], dim=2) # 第一行score置0
+     # print(f"after zero pad scores: {scores}")
+     scores = dropout(scores)

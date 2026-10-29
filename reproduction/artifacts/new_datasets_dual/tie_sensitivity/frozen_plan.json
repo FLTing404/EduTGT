@@ -1,0 +1,24 @@
+{
+  "datasets": [
+    "nips34"
+  ],
+  "frozen_before_test": true,
+  "seeds": [
+    20261004
+  ],
+  "selection_uses": "validation mean AUC across fixed training seeds only; no test metrics",
+  "selections": {
+    "nips34": {
+      "best_baseline": "akt",
+      "best_hypergraph": "fchgnn",
+      "validation_auc_mean": {
+        "akt": 0.7823012352165907,
+        "fchgnn": 0.7912338796781108
+      }
+    }
+  },
+  "variants": [
+    "akt",
+    "fchgnn"
+  ]
+}

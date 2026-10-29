@@ -1,50 +1,49 @@
-# EduTGT
+# EduTGT：知识追踪与评估探索
 
-面向 OULAD 学生与学习资源交互的时序图学习实验，包括链路预测、消融、TGN/TGAT/JODIE 风格基线，以及课程通过预测下游任务。
+当前处于方向调整后的初期探索阶段，重点是教育数据集适配、知识追踪基线、超图模块消融，以及错误识别与阈值选择。现有实验用于筛选问题和候选方案，尚未形成定型方法。
 
-## 目录
+本分支 `research/kt-exploration-20261029` 从旧 EduTGT 历史继续，工作目录以当前新代码为主体。此前的 OULAD 时序图链路预测和课程通过预测保留在 [main 的固定版本](https://github.com/FLTing404/EduTGT/tree/dbeb7d42e656967c3eb3b0c4f69f9f64d73201d4)。两套任务、标签和数据接口不同；关系与目录说明见 [方向调整说明](docs/方向调整与目录说明.md)。
 
-| 目录 | 内容 |
-|---|---|
-| [EduTGT/](EduTGT/) | 主模型、预训练、消融、基线和数据处理脚本 |
-| [downstream_pass_prediction/](downstream_pass_prediction/) | 课程通过预测代码、配置、标签和学生划分 |
-| [ContraTGT/](ContraTGT/) | 上游参考实现及原有公开图数据、权重；保留原 LICENSE |
-| [results/](results/) | 汇总表、所有实验日志、JSON、ROC 图和模型权重 |
-| [paper/](paper/) | 论文草稿、修订稿和参考材料 |
-| [docs/](docs/) | 前期交接文档、目录迁移说明和本地数据清单 |
-| [data/](data/) | OULAD 探索 notebook；本地另存的原始数据不上传 |
+## 从哪里开始
 
-先看 [结果索引](results/README.md) 和 [前期工作交接](docs/2026-10-27_前期工作交接.md)。具体命令见 [主实验使用指南](EduTGT/docs/使用指南.md) 与 [下游任务说明](downstream_pass_prediction/README.md)。
+| 路径 | 内容 |
+| --- | --- |
+| [reproduction/](reproduction/README.md) | 数据预处理、BKT/DKT/AKT/simpleKT/FC-HGNN 等模型、训练与分析入口 |
+| [reproduction/configs/](reproduction/configs/) | 小规模检查、前期复现和新数据集候选筛选配置 |
+| [reproduction/tests/](reproduction/tests/) | 数据划分、因果掩码、模型、阈值和学生聚类抽样测试 |
+| [datasets/](datasets/README.md) | 六套数据的来源、许可、校验和、统计与下载审计脚本 |
+| [汇报材料/项目综合汇报.md](汇报材料/项目综合汇报.md) | 已有实验观察、证据边界与待验证问题 |
+| [汇报材料/新数据集双方向实验简报.md](汇报材料/新数据集双方向实验简报.md) | XES3G5M、ASSIST2017、NIPS Task 3/4 的初步筛选记录 |
+| [reproduction/artifacts/](reproduction/artifacts/README.md) | 纳入 Git 的汇总指标、实验协议和报告图表 |
 
-## 安装与运行
+## 环境与检查
 
-以下命令从仓库根目录开始。依赖未锁定为原实验环境；原实验配置和已知问题见交接文档。
-
-```bash
-pip install -r requirements.txt
-
-# 只检查代码语法、目录和结果清单，不训练模型
-python scripts/check_layout.py
-
-# 将 OULAD 七张原始 CSV 放入 EduTGT/data/raw/OULAD/ 后构图
-python EduTGT/data/scripts/preprocess_oulad_for_contratgt.py --module ALL
-
-# 主实验命令在主代码目录执行
-cd EduTGT
-python pretrain.py --data_dir data/processed/data_AAA --n_epoch 50 --bs 800
-python methods/main_ablation_pres_relation.py --data_dir data/processed/data_AAA
-```
-
-下游脚本从仓库根目录执行，例如：
+使用 Python 3.10 或更高版本，从项目根目录运行：
 
 ```bash
-python downstream_pass_prediction/scripts/run_pass_batch_abc_seeds.py --modules data_AAA --strict-pretrain
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install -r reproduction/requirements-dev.txt
+OMP_NUM_THREADS=1 VECLIB_MAXIMUM_THREADS=1 python -m pytest reproduction/tests -q
+python reproduction/test_new_datasets.py --help
 ```
 
-主实验输出到 `results/link_prediction/`，下游输出到 `results/pass_prediction/`。原有历史文件原样保留，没有重新训练或重算历史分数。汇总表包含历史单次运行选取值，具体评测差异、消融标签含义及重复归档说明见交接文档。
+仅运行实验时，可安装根目录的 `requirements.txt`。AKT/simpleKT 的固定上游版本、许可证和本地补丁均保留在 [vendor/pykt](reproduction/src/fchgnn_repro/vendor/pykt/PATCHES.md)。
 
-## 数据与上传范围
+## 新数据集实验
 
-代码、数据处理脚本、notebook、处理元数据、小型下游标签与划分、论文、结果及权重均纳入 Git。两套 OULAD 原始数据和处理后的大型图表/索引留在本地，由根 [.gitignore](.gitignore) 忽略；详细文件、大小与 SHA256 见 [本地数据清单](docs/local-data-manifest.csv)。从 GitHub 克隆后需补齐数据或运行预处理。
+先按各数据集 `metadata/README.md` 的来源说明补齐本地 `raw/` 文件。根目录下的 `datasets/` 与 `reproduction/` 应保持同级；配置中的路径相对于配置文件解析。
 
-目录整理及旧路径对照见 [文件整理说明](docs/文件整理说明.md)。原 `FLTing404/EduTGT` 提交历史继续保留；本项目根目录现为统一的 Git 工作区。
+```bash
+# 小规模技术检查，仍需对应原始数据
+python reproduction/test_new_datasets.py all --config reproduction/configs/new_datasets_smoke.yaml
+
+# 三数据、七变体、三种子的候选筛选
+python reproduction/test_new_datasets.py all --config reproduction/configs/new_datasets_dual.yaml
+```
+
+完整流程和分析命令见 [实验说明](reproduction/README.md#新数据集双方向实验)。小规模配置用于检查流程；完整候选筛选仍是短预算实验。当前观察提示应继续检验阈值目标与错误识别的关系；相同输入的消融尚未支持稳定的超图传播收益。
+
+## 文件范围
+
+Git 包含代码、配置、测试、数据来源与许可、汇总实验记录。原始数据、逐事件预测、学生映射、预处理数据、权重、虚拟环境、临时文件和报告导出版留在本地。研究资料中的参考论文链接继续保留；本分支不包含论文初稿或投稿规划。

@@ -1,0 +1,76 @@
+{
+  "result": {
+    "best_valid_loss": 0.6427559048155992,
+    "class_counts": {
+      "correct": 6889,
+      "incorrect": 303
+    },
+    "class_weights": {
+      "correct": 0.530533943703355,
+      "incorrect": 11.673767860817119
+    },
+    "decision_threshold": 0.5099999999999999,
+    "device": "mps",
+    "elapsed_seconds": 0.7762579917907715,
+    "history": [
+      {
+        "accuracy": 0.8343520782396088,
+        "auc": 0.7379994566122404,
+        "balanced_accuracy": 0.6521310440932874,
+        "brier": 0.22487899534208847,
+        "ece": 0.4285011467476054,
+        "epoch": 1,
+        "f1": 0.9076660988074957,
+        "incorrect_f1": 0.19584569732937684,
+        "incorrect_pr_auc": 0.1447327809922286,
+        "incorrect_precision": 0.125,
+        "incorrect_recall": 0.4520547945205479,
+        "learning_rate": 0.001,
+        "macro_f1": 0.5517558980684363,
+        "mcc": 0.17076927770353403,
+        "pr_auc": 0.9791339087220519,
+        "precision": 0.9708454810495627,
+        "recall": 0.8522072936660269,
+        "train_loss": 0.685218645058763,
+        "valid_loss": 0.6427559048155992
+      }
+    ],
+    "model": "fchgnn",
+    "parameters": 102060,
+    "sequence_counts": {
+      "test": 225,
+      "train": 1050,
+      "valid": 225
+    },
+    "threshold_objective": "mcc",
+    "validation": {
+      "accuracy": 0.7903422982885085,
+      "auc": 0.7379994566122403,
+      "balanced_accuracy": 0.7009220063278381,
+      "brier": 0.22487899542947354,
+      "ece": 0.4285011471848033,
+      "f1": 0.8792678634283703,
+      "incorrect_f1": 0.20417633410672853,
+      "incorrect_pr_auc": 0.14473278099222864,
+      "incorrect_precision": 0.12290502793296089,
+      "incorrect_recall": 0.6027397260273972,
+      "macro_f1": 0.5417220987675494,
+      "mcc": 0.20067417245715466,
+      "pr_auc": 0.9791339540557784,
+      "precision": 0.9773082942097027,
+      "recall": 0.7991042866282789
+    },
+    "validation_diagnostics": {
+      "mean_uncertainty": 0.5708781480789185,
+      "mean_uncertainty_correct": 0.5702893137931824,
+      "mean_uncertainty_error": 0.5738441944122314
+    }
+  },
+  "settings": {
+    "class_balance_beta": 0.99999,
+    "focal_gamma": 2.0,
+    "imbalance_loss": "focal",
+    "threshold_objective": "mcc"
+  },
+  "stage": "class_balanced_focal"
+}

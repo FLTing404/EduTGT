@@ -1,0 +1,21 @@
+{
+  "completed": true,
+  "datasets": [
+    "xes3g5m",
+    "assist17",
+    "nips34"
+  ],
+  "final_runs": 21,
+  "seeds": [
+    20261004
+  ],
+  "variants": [
+    "dkt",
+    "akt",
+    "simplekt",
+    "fchgnn",
+    "fchgnn_enhanced",
+    "fchgnn_nohg",
+    "fchgnn_weighted"
+  ]
+}

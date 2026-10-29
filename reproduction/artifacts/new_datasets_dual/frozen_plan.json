@@ -1,0 +1,64 @@
+{
+  "datasets": [
+    "xes3g5m",
+    "assist17",
+    "nips34"
+  ],
+  "frozen_before_test": true,
+  "seeds": [
+    20261004,
+    20261005,
+    20261006
+  ],
+  "selection_uses": "validation mean AUC across fixed training seeds only; no test metrics",
+  "selections": {
+    "assist17": {
+      "best_baseline": "dkt",
+      "best_hypergraph": "fchgnn",
+      "validation_auc_mean": {
+        "akt": 0.688469274846995,
+        "dkt": 0.7311132690304271,
+        "fchgnn": 0.7398887698501982,
+        "fchgnn_enhanced": 0.739319524524909,
+        "fchgnn_nohg": 0.7388717219440094,
+        "fchgnn_weighted": 0.7399138480788316,
+        "simplekt": 0.7033495788978108
+      }
+    },
+    "nips34": {
+      "best_baseline": "dkt",
+      "best_hypergraph": "fchgnn",
+      "validation_auc_mean": {
+        "akt": 0.7820417892455019,
+        "dkt": 0.7904594726010377,
+        "fchgnn": 0.7911807115922778,
+        "fchgnn_enhanced": 0.7911518653489046,
+        "fchgnn_nohg": 0.7912554628369665,
+        "fchgnn_weighted": 0.7911489195444824,
+        "simplekt": 0.7850450761172137
+      }
+    },
+    "xes3g5m": {
+      "best_baseline": "simplekt",
+      "best_hypergraph": "fchgnn_enhanced",
+      "validation_auc_mean": {
+        "akt": 0.7985481719417734,
+        "dkt": 0.7991062227503036,
+        "fchgnn": 0.8106872923435984,
+        "fchgnn_enhanced": 0.8145689821229366,
+        "fchgnn_nohg": 0.8145256795083401,
+        "fchgnn_weighted": 0.8107931033590101,
+        "simplekt": 0.8015823501180231
+      }
+    }
+  },
+  "variants": [
+    "dkt",
+    "akt",
+    "simplekt",
+    "fchgnn",
+    "fchgnn_enhanced",
+    "fchgnn_nohg",
+    "fchgnn_weighted"
+  ]
+}

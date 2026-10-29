@@ -1,0 +1,82 @@
+{
+  "best_valid_loss": 0.18682803501418285,
+  "decision_threshold": 0.1,
+  "device": "mps",
+  "elapsed_seconds": 3.877110004425049,
+  "history": [
+    {
+      "accuracy": 0.9553789731051344,
+      "auc": 0.5255830463018958,
+      "balanced_accuracy": 0.5,
+      "brier": 0.07670601635798587,
+      "ece": 0.17971790656629577,
+      "epoch": 1,
+      "f1": 0.9771803688652704,
+      "learning_rate": 0.001,
+      "mcc": 0.0,
+      "pr_auc": 0.9614240396371639,
+      "precision": 0.9553789731051344,
+      "recall": 1.0,
+      "train_loss": 0.7619248438125126,
+      "valid_loss": 0.3112651573125191
+    },
+    {
+      "accuracy": 0.9553789731051344,
+      "auc": 0.5346278232061631,
+      "balanced_accuracy": 0.5,
+      "brier": 0.04317997218907872,
+      "ece": 0.02217369185974662,
+      "epoch": 2,
+      "f1": 0.9771803688652704,
+      "learning_rate": 0.00092,
+      "mcc": 0.0,
+      "pr_auc": 0.9616487929632558,
+      "precision": 0.9553789731051344,
+      "recall": 1.0,
+      "train_loss": 0.3542020922781562,
+      "valid_loss": 0.18682803501418285
+    }
+  ],
+  "model": "fchgnn",
+  "parameters": 102060,
+  "sequence_counts": {
+    "test": 225,
+    "train": 1050,
+    "valid": 225
+  },
+  "test": {
+    "accuracy": 0.9379586390927285,
+    "auc": 0.5158269474907845,
+    "balanced_accuracy": 0.5,
+    "brier": 0.0584631370988082,
+    "ece": 0.006945822221426427,
+    "f1": 0.9679862306368331,
+    "mcc": 0.0,
+    "pr_auc": 0.9461310674563133,
+    "precision": 0.9379586390927285,
+    "recall": 1.0
+  },
+  "test_diagnostics": {
+    "mean_uncertainty": 0.13434790074825287,
+    "mean_uncertainty_correct": 0.1343611627817154,
+    "mean_uncertainty_error": 0.13414737582206726
+  },
+  "test_loss": 0.23408890788439038,
+  "validation": {
+    "accuracy": 0.9553789731051344,
+    "auc": 0.5346278232061631,
+    "balanced_accuracy": 0.5,
+    "brier": 0.04317997216637747,
+    "ece": 0.02217369185974662,
+    "f1": 0.9771803688652704,
+    "mcc": 0.0,
+    "pr_auc": 0.9616487929632558,
+    "precision": 0.9553789731051344,
+    "recall": 1.0
+  },
+  "validation_diagnostics": {
+    "mean_uncertainty": 0.13069024682044983,
+    "mean_uncertainty_correct": 0.1306096315383911,
+    "mean_uncertainty_error": 0.13241612911224365
+  }
+}

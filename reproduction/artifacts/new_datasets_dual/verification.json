@@ -1,0 +1,21 @@
+{
+  "date": "2026-10-05",
+  "core_validation_runs": 63,
+  "core_test_runs": 63,
+  "sensitivity_trainings": 2,
+  "test_suite_passed": 40,
+  "all_masked_target_counts_match_metadata": true,
+  "event_label_student_item_alignment_across_all_models_and_seeds": true,
+  "all_threshold_ranking_calibration_metrics_invariant": true,
+  "all_13_frozen_training_source_hashes_unchanged": true,
+  "frozen_plan_precedes_all_final_result_files": true,
+  "best_epoch_at_budget_limit": 60,
+  "budget_limit_epochs": 8,
+  "plot_sha256": "da3058044eeae431605097fa6937cf9a35053eaaf09eebc8d15eb52d2e46797c",
+  "analysis_sha256": {
+    "analyze_prediction_slices.py": "9863f880c096c24fcec593b332bfa8bb8481ddca3528ce6f35f73825fc4751d0",
+    "analyze_tie_sensitivity.py": "96ea35fdd2118e9c965176da2df1e1cc4c4a6a87dc11d089cf447cd0bc7a3b7f",
+    "analyze_static_priors.py": "a9d2cd9cbe96d4e691c2a461cc86b79bb6d5d002589e2774ea1252282e06fd4d",
+    "analyze_new_datasets.py": "19434fb0a77371f9a8ee44e112d5fa87366ec0ea71ecba39f2aff1d0f07efbcb"
+  }
+}

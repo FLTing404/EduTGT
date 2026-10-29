@@ -1,0 +1,21 @@
+{
+  "model": "bkt",
+  "parameters": {
+    "p_guess": 0.3,
+    "p_init": 0.5,
+    "p_learn": 0.3,
+    "p_slip": 0.15
+  },
+  "sequence_counts": {
+    "test": 415,
+    "train": 1688,
+    "valid": 411
+  },
+  "test": {
+    "accuracy": 0.6508089252420761,
+    "auc": 0.5623068994554961,
+    "f1": 0.7884727484698338,
+    "precision": 0.6508089252420761,
+    "recall": 1.0
+  }
+}

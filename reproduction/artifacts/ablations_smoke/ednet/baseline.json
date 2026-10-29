@@ -1,0 +1,71 @@
+{
+  "result": {
+    "best_valid_loss": 0.5743633079307309,
+    "decision_threshold": 0.48,
+    "device": "mps",
+    "elapsed_seconds": 4.190562009811401,
+    "history": [
+      {
+        "accuracy": 0.7240999938879041,
+        "auc": 0.6648206091090846,
+        "balanced_accuracy": 0.5438832609388956,
+        "brier": 0.19395170927551714,
+        "ece": 0.05596740500216277,
+        "epoch": 1,
+        "f1": 0.8335422966295449,
+        "learning_rate": 0.001,
+        "mcc": 0.17845106288498122,
+        "pr_auc": 0.8142990889194507,
+        "precision": 0.7291142506935037,
+        "recall": 0.9728845657226478,
+        "train_loss": 0.6364068619679688,
+        "valid_loss": 0.5743633079307309
+      },
+      {
+        "accuracy": 0.6946396919503698,
+        "auc": 0.6900217901862435,
+        "balanced_accuracy": 0.6376232674798709,
+        "brier": 0.20644768193981694,
+        "ece": 0.11792162355145064,
+        "epoch": 2,
+        "f1": 0.7824420832607559,
+        "learning_rate": 0.00092,
+        "mcc": 0.27089968685909244,
+        "pr_auc": 0.8291604131181443,
+        "precision": 0.7917511236450163,
+        "recall": 0.773349401738831,
+        "train_loss": 0.5474739359138118,
+        "valid_loss": 0.6146064414625959
+      }
+    ],
+    "model": "fchgnn",
+    "parameters": 449804,
+    "sequence_counts": {
+      "test": 415,
+      "train": 1688,
+      "valid": 411
+    },
+    "validation": {
+      "accuracy": 0.7217773974695924,
+      "auc": 0.6648206091090847,
+      "balanced_accuracy": 0.5322707798987963,
+      "brier": 0.1939517092446853,
+      "ece": 0.05596740500216277,
+      "f1": 0.8338686131386861,
+      "mcc": 0.1586353950015673,
+      "pr_auc": 0.8142991172378056,
+      "precision": 0.7238167648735981,
+      "recall": 0.9833864164586382
+    }
+  },
+  "settings": {
+    "contrastive_weight": 0.0,
+    "dynamic_scale_fusion": false,
+    "guided_diffusion": false,
+    "hypergraph_attention": false,
+    "multi_concept": false,
+    "time_aware": false,
+    "uncertainty_enabled": false
+  },
+  "stage": "baseline"
+}

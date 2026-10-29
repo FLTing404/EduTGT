@@ -1,32 +1,48 @@
-# Local backups of the original nested Git repositories and organization inventory.
-/.local/
-
-# Large OULAD inputs and generated graph tables stay on the local machine.
-# Processing scripts, notebooks, metadata, labels and student splits are tracked.
-/data/OULAD/
-/EduTGT/data/raw/OULAD/
-/EduTGT/data/processed/*/*
-!/EduTGT/data/processed/*/*.json
-
-# Python environments and generated caches.
-__pycache__/
-*.py[cod]
 .venv/
 venv/
-env/
-*.egg-info/
-.eggs/
-build/
-dist/
+.work/
 .pytest_cache/
-.mypy_cache/
-.ruff_cache/
-.ipynb_checkpoints/
-
-# Editor and operating-system temporary files.
-.idea/
-.vscode/
-*.swp
-*.swo
+__pycache__/
+*.py[cod]
 .DS_Store
-Thumbs.db
+.env
+.env.*
+
+# Raw releases and download fragments stay local.
+datasets/**/raw/
+**/.range_parts/
+*.part
+
+# Keep aggregate evidence; exclude training data, predictions and weights.
+reproduction/artifacts/**
+!reproduction/artifacts/**/
+!reproduction/artifacts/**/*.json
+!reproduction/artifacts/**/*.md
+!reproduction/artifacts/**/*.png
+reproduction/artifacts/**/prepared/
+reproduction/artifacts/**/sensitivity_prepared/
+reproduction/artifacts/preprocess_qa/
+reproduction/artifacts/**/analysis/*.json
+*.pt
+*.pth
+*.ckpt
+
+# Reference PDFs and exported reports are local reading copies.
+docs/papers/
+*.doc
+*.docx
+*.pdf
+*.zip
+
+# This branch is for early experiments, not manuscript preparation.
+paper/
+汇报材料/论文初稿*
+汇报材料/投稿定位说明.md
+*.aux
+*.bbl
+*.blg
+*.fdb_latexmk
+*.fls
+*.log
+*.out
+*.xdv

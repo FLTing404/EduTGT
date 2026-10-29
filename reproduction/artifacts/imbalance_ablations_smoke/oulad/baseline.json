@@ -1,0 +1,73 @@
+{
+  "result": {
+    "best_valid_loss": 0.3112651573125191,
+    "class_counts": {
+      "correct": 6889,
+      "incorrect": 303
+    },
+    "class_weights": {
+      "correct": 1.0,
+      "incorrect": 1.0
+    },
+    "decision_threshold": 0.1,
+    "device": "mps",
+    "elapsed_seconds": 2.7183680534362793,
+    "history": [
+      {
+        "accuracy": 0.9553789731051344,
+        "auc": 0.5255830463018958,
+        "balanced_accuracy": 0.5,
+        "brier": 0.07670601603895934,
+        "ece": 0.17971788740245523,
+        "epoch": 1,
+        "f1": 0.9771803688652704,
+        "incorrect_f1": 0.0,
+        "incorrect_pr_auc": 0.050613270789620225,
+        "incorrect_precision": 0.0,
+        "incorrect_recall": 0.0,
+        "learning_rate": 0.001,
+        "macro_f1": 0.4885901844326352,
+        "mcc": 0.0,
+        "pr_auc": 0.9614239256505738,
+        "precision": 0.9553789731051344,
+        "recall": 1.0,
+        "train_loss": 0.7619248317871595,
+        "valid_loss": 0.3112651573125191
+      }
+    ],
+    "model": "fchgnn",
+    "parameters": 102060,
+    "sequence_counts": {
+      "test": 225,
+      "train": 1050,
+      "valid": 225
+    },
+    "threshold_objective": "f1",
+    "validation": {
+      "accuracy": 0.9553789731051344,
+      "auc": 0.5255830463018958,
+      "balanced_accuracy": 0.5,
+      "brier": 0.07670601578352813,
+      "ece": 0.17971788740245523,
+      "f1": 0.9771803688652704,
+      "incorrect_f1": 0.0,
+      "incorrect_pr_auc": 0.05061327078962022,
+      "incorrect_precision": 0.0,
+      "incorrect_recall": 0.0,
+      "macro_f1": 0.4885901844326352,
+      "mcc": 0.0,
+      "pr_auc": 0.9614239799568368,
+      "precision": 0.9553789731051344,
+      "recall": 1.0
+    },
+    "validation_diagnostics": {
+      "mean_uncertainty": 0.3419747054576874,
+      "mean_uncertainty_correct": 0.34203484654426575,
+      "mean_uncertainty_error": 0.34068673849105835
+    }
+  },
+  "settings": {
+    "threshold_objective": "f1"
+  },
+  "stage": "baseline"
+}

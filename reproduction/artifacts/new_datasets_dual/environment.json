@@ -1,0 +1,17 @@
+{
+  "python": "3.12.7",
+  "platform": "macOS-26.6.2-arm64-arm-64bit",
+  "machine": "arm64",
+  "torch": "2.14.0",
+  "numpy": "1.26.4",
+  "pandas": "2.2.2",
+  "scikit_learn": "1.5.1",
+  "device": "mps",
+  "training_cpu_threads": 4,
+  "training_seeds": [
+    20261004,
+    20261005,
+    20261006
+  ],
+  "test_policy": "complete core and sensitivity training before sequential pytest, OMP_NUM_THREADS=1 and VECLIB_MAXIMUM_THREADS=1"
+}

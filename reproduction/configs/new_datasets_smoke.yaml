@@ -1,0 +1,37 @@
+seed: 20261004
+data_root: ../../datasets
+artifact_root: ../artifacts/new_datasets_smoke
+datasets:
+  xes3g5m:
+    sample_users: 120
+  assist17:
+    sample_users: 120
+  nips34:
+    sample_users: 120
+    tie_order: answer_id
+split:
+  train: 0.70
+  valid: 0.15
+  test: 0.15
+sequence:
+  max_length: 50
+  min_length: 3
+training:
+  models: [dkt, akt, simplekt, fchgnn]
+  epochs: 2
+  batch_size: 32
+  learning_rate: 0.001
+  learning_rate_decay: 0.92
+  weight_decay: 0.00001
+  patience: 2
+  early_stopping_metric: auc
+  embedding_dim: 32
+  hidden_dim: 64
+  dropout: 0.2
+  hypergraph_layers: 3
+  num_heads: 4
+  num_workers: 0
+  tune_threshold: true
+  threshold_objective: mcc
+  threshold_search: exact
+  progress: true

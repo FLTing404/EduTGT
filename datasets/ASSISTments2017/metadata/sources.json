@@ -1,0 +1,47 @@
+[
+  {
+    "local_path": "metadata/OFFICIAL_DATASET_PAGE.html",
+    "source_url": "https://sites.google.com/view/assistmentsdatamining/dataset",
+    "final_url": "https://sites.google.com/view/assistmentsdatamining/dataset",
+    "http_status": 200,
+    "bytes": 125369,
+    "retrieved_date": "2026-10-04",
+    "timezone": "Asia/Shanghai"
+  },
+  {
+    "local_path": "metadata/OFFICIAL_COMPETITION_PAGE.html",
+    "source_url": "https://sites.google.com/view/assistmentsdatamining/data-mining-competition-2017",
+    "final_url": "https://sites.google.com/view/assistmentsdatamining/data-mining-competition-2017",
+    "http_status": 200,
+    "bytes": 138672,
+    "retrieved_date": "2026-10-04",
+    "timezone": "Asia/Shanghai"
+  },
+  {
+    "local_path": "metadata/OFFICIAL_LEGACY_TESTBED_DATA_TERMS.html",
+    "source_url": "https://sites.google.com/site/assistmentstestbed/4-analyze-data/terms-of-use-for-data",
+    "final_url": "https://sites.google.com/site/assistmentstestbed/4-analyze-data/terms-of-use-for-data",
+    "http_status": 200,
+    "bytes": 152185,
+    "retrieved_date": "2026-10-04",
+    "timezone": "Asia/Shanghai"
+  },
+  {
+    "local_path": "metadata/OFFICIAL_ASSISTMENTSDATA_TERMS.html",
+    "source_url": "https://sites.google.com/site/assistmentsdata/termsofuseforusingdata",
+    "final_url": "https://sites.google.com/site/assistmentsdata/termsofuseforusingdata",
+    "http_status": 200,
+    "bytes": 144905,
+    "retrieved_date": "2026-10-04",
+    "timezone": "Asia/Shanghai"
+  },
+  {
+    "local_path": "metadata/OFFICIAL_COLUMN_DESCRIPTION.csv",
+    "source_url": "https://docs.google.com/spreadsheets/d/1QVUStXiRerWbH1X0P11rJ5IsuU2Xutu60D1SjpmTMlk/export?format=csv",
+    "final_url": "https://doc-00-4o-sheets.googleusercontent.com/export/f3kk9gtum31ktuqh54kn7i1e14/d1b4kg462lq29f03ht41epn0co/1791119940000/111616247140939776197/*/1QVUStXiRerWbH1X0P11rJ5IsuU2Xutu60D1SjpmTMlk?format=csv",
+    "http_status": 200,
+    "bytes": 6508,
+    "retrieved_date": "2026-10-04",
+    "timezone": "Asia/Shanghai"
+  }
+]

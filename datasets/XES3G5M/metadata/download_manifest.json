@@ -1,0 +1,16 @@
+{
+  "downloaded_date": "2026-10-04",
+  "timezone": "Asia/Shanghai",
+  "source_page": "https://github.com/ai4ed/XES3G5M",
+  "source_commit": "b5a35caf223c5c5d558da2fb836087fa6af2bef5",
+  "google_drive_file_id": "1eFiIYyh5O2V90RA0brammGH6EpHvPDQe",
+  "source_url": "https://drive.usercontent.google.com/download?id=1eFiIYyh5O2V90RA0brammGH6EpHvPDQe&export=download&confirm=t",
+  "filename": "XES3G5M.tar.gz",
+  "bytes": 373235093,
+  "sha256": "62d145bd995248f78726a0b6ab69612cf418e3118d0fe01bfe6f4c61b5072f73",
+  "license": "MIT",
+  "download_note": "Initial stream ended early. Size check detected missing tail and HTTP 206 Range resumed the remaining 16,482,401 bytes using existing system proxy. No archive modification.",
+  "gzip_crc_integrity": "passed",
+  "tar_members": 3886,
+  "uncompressed_member_bytes": 8642670992
+}
