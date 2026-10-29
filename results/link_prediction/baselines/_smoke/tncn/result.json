@@ -1,0 +1,20 @@
+{
+  "model": "jodie",
+  "data_name": "data_AAA",
+  "val_auc": 0.7809375774148996,
+  "val_ap": 0.6768790981998957,
+  "test_auc": 0.63754457232239,
+  "test_ap": 0.5505216125048847,
+  "train_time_sec": 12.585761785507202,
+  "best_epoch": 1,
+  "hyperparams": {
+    "data_dir": "data/data_AAA",
+    "epochs": 1,
+    "batch_size": 100,
+    "lr": 0.001,
+    "seed": 42,
+    "device": "cpu",
+    "out_dir": "baseline/results/_smoke/tncn",
+    "dim": 128
+  }
+}

@@ -1,0 +1,36 @@
+{
+  "model": "tgat",
+  "data_name": "data_CCC",
+  "val_auc": 0.8531290243194483,
+  "val_ap": 0.8475557247963154,
+  "test_auc": 0.9686318730746003,
+  "test_ap": 0.9284977458101067,
+  "test_acc": 0.8809978702522605,
+  "nn_test_auc": 0.9795109654989012,
+  "nn_test_ap": 0.9390034897397012,
+  "nn_test_acc": 0.8918066775431894,
+  "train_time_sec": 256.7377607822418,
+  "best_epoch": 3,
+  "hyperparams": {
+    "data_dir": "/home/fgao/Desktop/EduTGT/EduTGT/data/processed/data_CCC",
+    "epochs": 50,
+    "batch_size": 200,
+    "lr": 0.001,
+    "seed": 42,
+    "device": "cuda",
+    "out_dir": "/home/fgao/Desktop/EduTGT/EduTGT/outputs/result/_runs/data_CCC_s42/tgat",
+    "ctx_sample": 10
+  },
+  "stats": {
+    "num_edges": 884889,
+    "num_train": 89337,
+    "num_val": 88426,
+    "num_test": 707126,
+    "num_nn_val": 10023,
+    "num_nn_test": 581681,
+    "val_time": 20.0,
+    "test_time": 69.0,
+    "ts_min": -18,
+    "ts_max": 1269
+  }
+}

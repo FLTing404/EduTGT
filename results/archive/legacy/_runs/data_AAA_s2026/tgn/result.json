@@ -1,0 +1,38 @@
+{
+  "model": "tgn",
+  "data_name": "data_AAA",
+  "val_auc": 0.9045180145989447,
+  "val_ap": 0.879547648500421,
+  "test_auc": 0.9468388700733397,
+  "test_ap": 0.9416318876108414,
+  "test_acc": 0.670580799088384,
+  "nn_test_auc": 0.8067489971689841,
+  "nn_test_ap": 0.7919845533463161,
+  "nn_test_acc": 0.6014802610893816,
+  "train_time_sec": 70.0324296951294,
+  "best_epoch": 8,
+  "hyperparams": {
+    "data_dir": "/home/fgao/Desktop/EduTGT/EduTGT/data/processed/data_AAA",
+    "epochs": 50,
+    "batch_size": 200,
+    "lr": 0.001,
+    "seed": 2026,
+    "device": "cuda",
+    "out_dir": "/home/fgao/Desktop/EduTGT/EduTGT/outputs/result/_runs/data_AAA_s2026/tgn",
+    "memory_dim": 64,
+    "time_dim": 64,
+    "raw_msg_dim": 32
+  },
+  "stats": {
+    "num_edges": 280990,
+    "num_train": 29399,
+    "num_val": 26935,
+    "num_test": 224656,
+    "num_nn_val": 785,
+    "num_nn_test": 159026,
+    "val_time": 17.0,
+    "test_time": 53.0,
+    "ts_min": -10,
+    "ts_max": 1269
+  }
+}

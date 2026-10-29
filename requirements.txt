@@ -1,0 +1,4 @@
+# Shared experiment dependencies; historical runs were not version-locked.
+-r downstream_pass_prediction/requirements-downstream.txt
+-r EduTGT/baseline/requirements-baseline.txt
+scipy

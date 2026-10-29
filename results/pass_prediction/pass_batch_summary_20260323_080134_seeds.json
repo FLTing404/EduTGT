@@ -1,0 +1,92 @@
+[
+  {
+    "dataset": "data_AAA",
+    "init": "scratch",
+    "seed": 1944452478
+  },
+  {
+    "dataset": "data_AAA",
+    "init": "pretrain",
+    "seed": 1944452478
+  },
+  {
+    "dataset": "data_AAA",
+    "init": "scratch",
+    "seed": 1618206330
+  },
+  {
+    "dataset": "data_AAA",
+    "init": "pretrain",
+    "seed": 1618206330
+  },
+  {
+    "dataset": "data_AAA",
+    "init": "scratch",
+    "seed": 1955398648
+  },
+  {
+    "dataset": "data_AAA",
+    "init": "pretrain",
+    "seed": 1955398648
+  },
+  {
+    "dataset": "data_BBB",
+    "init": "scratch",
+    "seed": 1044341977
+  },
+  {
+    "dataset": "data_BBB",
+    "init": "pretrain",
+    "seed": 1044341977
+  },
+  {
+    "dataset": "data_BBB",
+    "init": "scratch",
+    "seed": 1710873354
+  },
+  {
+    "dataset": "data_BBB",
+    "init": "pretrain",
+    "seed": 1710873354
+  },
+  {
+    "dataset": "data_BBB",
+    "init": "scratch",
+    "seed": 907041343
+  },
+  {
+    "dataset": "data_BBB",
+    "init": "pretrain",
+    "seed": 907041343
+  },
+  {
+    "dataset": "data_CCC",
+    "init": "scratch",
+    "seed": 119836815
+  },
+  {
+    "dataset": "data_CCC",
+    "init": "pretrain",
+    "seed": 119836815
+  },
+  {
+    "dataset": "data_CCC",
+    "init": "scratch",
+    "seed": 1534593154
+  },
+  {
+    "dataset": "data_CCC",
+    "init": "pretrain",
+    "seed": 1534593154
+  },
+  {
+    "dataset": "data_CCC",
+    "init": "scratch",
+    "seed": 1266026964
+  },
+  {
+    "dataset": "data_CCC",
+    "init": "pretrain",
+    "seed": 1266026964
+  }
+]

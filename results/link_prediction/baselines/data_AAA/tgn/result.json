@@ -1,0 +1,32 @@
+{
+  "model": "tgn",
+  "data_name": "data_AAA",
+  "val_auc": 0.9066523934080937,
+  "val_ap": 0.8837028117313018,
+  "test_auc": 0.9613166668773041,
+  "test_ap": 0.9613096797478041,
+  "train_time_sec": 146.74912929534912,
+  "best_epoch": 17,
+  "hyperparams": {
+    "data_dir": "D:\\study\\2026-大三下\\EduTGT\\EduTGT\\data\\data_AAA",
+    "epochs": 50,
+    "batch_size": 200,
+    "lr": 0.001,
+    "seed": 42,
+    "device": "cuda",
+    "out_dir": "D:\\study\\2026-大三下\\EduTGT\\EduTGT\\baseline\\results\\data_AAA\\tgn",
+    "memory_dim": 64,
+    "time_dim": 64,
+    "raw_msg_dim": 32
+  },
+  "stats": {
+    "num_edges": 280990,
+    "num_train": 29399,
+    "num_val": 26935,
+    "num_test": 224656,
+    "val_time": 17.0,
+    "test_time": 53.0,
+    "ts_min": -10,
+    "ts_max": 1269
+  }
+}

@@ -1,0 +1,20 @@
+{
+  "model": "jodie",
+  "data_name": "data_AAA",
+  "val_auc": 0.7793661893035744,
+  "val_ap": 0.6745992333717505,
+  "test_auc": 0.6465941532455644,
+  "test_ap": 0.5649642359799194,
+  "train_time_sec": 18.693607330322266,
+  "best_epoch": 1,
+  "hyperparams": {
+    "data_dir": "D:\\study\\2026-大三下\\EduTGT\\EduTGT\\data\\data_AAA",
+    "epochs": 50,
+    "batch_size": 200,
+    "lr": 0.001,
+    "seed": 42,
+    "device": "cuda",
+    "out_dir": "D:\\study\\2026-大三下\\EduTGT\\EduTGT\\baseline\\results\\data_AAA\\tncn",
+    "dim": 128
+  }
+}

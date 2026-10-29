@@ -1,51 +1,32 @@
-# ---------- 大数据与训练产物（勿提交 GitHub）----------
-# 原始与预处理数据（含 OULAD）
-data/
+# Local backups of the original nested Git repositories and organization inventory.
+/.local/
 
-# 主仓库训练输出（保留说明文档）
-outputs/*
-!outputs/README.md
+# Large OULAD inputs and generated graph tables stay on the local machine.
+# Processing scripts, notebooks, metadata, labels and student splits are tracked.
+/data/OULAD/
+/EduTGT/data/raw/OULAD/
+/EduTGT/data/processed/*/*
+!/EduTGT/data/processed/*/*.json
 
-# 下游子目录内生成数据与权重（保留 .gitkeep 占位）
-downstream_pass_prediction/data/*
-!downstream_pass_prediction/data/.gitkeep
-downstream_pass_prediction/outputs/*
-!downstream_pass_prediction/outputs/.gitkeep
-
-# Baseline 跑分输出（json/csv）
-baseline/results/
-
-# PyTorch 权重 / 检查点（体积大）
-*.pth
-*.pt
-*.ckpt
-
-# ---------- Python ----------
+# Python environments and generated caches.
 __pycache__/
 *.py[cod]
-*$py.class
-.Python
 .venv/
 venv/
 env/
 *.egg-info/
 .eggs/
-dist/
 build/
-*.egg
+dist/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.ipynb_checkpoints/
 
-# ---------- 环境 / 密钥 ----------
-.env
-.env.*
-*.pem
-
-# ---------- IDE / 系统 ----------
+# Editor and operating-system temporary files.
 .idea/
 .vscode/
 *.swp
 *.swo
 .DS_Store
 Thumbs.db
-
-# ---------- Jupyter ----------
-.ipynb_checkpoints/

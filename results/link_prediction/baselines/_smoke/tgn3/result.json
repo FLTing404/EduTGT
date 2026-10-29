@@ -1,0 +1,32 @@
+{
+  "model": "tgn",
+  "data_name": "data_AAA",
+  "val_auc": 0.9099413120759162,
+  "val_ap": 0.8843529193636023,
+  "test_auc": 0.9572565906135521,
+  "test_ap": 0.9545900985427317,
+  "train_time_sec": 47.19310784339905,
+  "best_epoch": 1,
+  "hyperparams": {
+    "data_dir": "data/data_AAA",
+    "epochs": 1,
+    "batch_size": 100,
+    "lr": 0.001,
+    "seed": 42,
+    "device": "cpu",
+    "out_dir": "baseline/results/_smoke/tgn3",
+    "memory_dim": 64,
+    "time_dim": 64,
+    "raw_msg_dim": 32
+  },
+  "stats": {
+    "num_edges": 280990,
+    "num_train": 29399,
+    "num_val": 26935,
+    "num_test": 224656,
+    "val_time": 17.0,
+    "test_time": 53.0,
+    "ts_min": -10,
+    "ts_max": 1269
+  }
+}

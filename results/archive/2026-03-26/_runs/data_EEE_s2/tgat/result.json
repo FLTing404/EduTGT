@@ -1,0 +1,36 @@
+{
+  "model": "tgat",
+  "data_name": "data_EEE",
+  "val_auc": 0.8714478048521279,
+  "val_ap": 0.8442522927132617,
+  "test_auc": 0.8903954313447825,
+  "test_ap": 0.7997062378300919,
+  "test_acc": 0.8124980398306414,
+  "nn_test_auc": 0.8879751392295964,
+  "nn_test_ap": 0.7896798557263822,
+  "nn_test_acc": 0.8063247257516869,
+  "train_time_sec": 128.35002374649048,
+  "best_epoch": 1,
+  "hyperparams": {
+    "data_dir": "/home/fgao/Desktop/EduTGT/EduTGT/data/processed/data_EEE",
+    "epochs": 50,
+    "batch_size": 200,
+    "lr": 0.001,
+    "seed": 2,
+    "device": "cuda",
+    "out_dir": "/home/fgao/Desktop/EduTGT/EduTGT/outputs/result/_runs/data_EEE_s2/tgat",
+    "ctx_sample": 10
+  },
+  "stats": {
+    "num_edges": 758220,
+    "num_train": 77716,
+    "num_val": 74689,
+    "num_test": 605815,
+    "num_nn_val": 5993,
+    "num_nn_test": 533367,
+    "val_time": 31.0,
+    "test_time": 94.0,
+    "ts_min": -11,
+    "ts_max": 2269
+  }
+}

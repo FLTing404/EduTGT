@@ -1,0 +1,36 @@
+{
+  "model": "jodie",
+  "data_name": "data_AAA",
+  "val_auc": 0.7798627645864444,
+  "val_ap": 0.6850785119758445,
+  "test_auc": 0.6368101870099526,
+  "test_ap": 0.5535215034466836,
+  "test_acc": 0.5497560715048786,
+  "nn_test_auc": 0.8463453496704825,
+  "nn_test_ap": 0.8030863965148136,
+  "nn_test_acc": 0.6037849156741665,
+  "train_time_sec": 8.736863613128662,
+  "best_epoch": 1,
+  "hyperparams": {
+    "data_dir": "data/data_AAA",
+    "epochs": 1,
+    "batch_size": 200,
+    "lr": 0.001,
+    "seed": 42,
+    "device": "cpu",
+    "out_dir": "baseline/results/_nn_smoke/tncn",
+    "dim": 128
+  },
+  "stats": {
+    "num_edges": 280990,
+    "num_train": 29399,
+    "num_val": 26935,
+    "num_test": 224656,
+    "num_nn_val": 785,
+    "num_nn_test": 159026,
+    "val_time": 17.0,
+    "test_time": 53.0,
+    "ts_min": -10,
+    "ts_max": 1269
+  }
+}

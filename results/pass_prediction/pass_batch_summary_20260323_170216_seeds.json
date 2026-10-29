@@ -1,0 +1,110 @@
+[
+  {
+    "dataset": "data_AAA",
+    "init": "scratch",
+    "seed": 74545898,
+    "e2_preset": ""
+  },
+  {
+    "dataset": "data_AAA",
+    "init": "pretrain",
+    "seed": 74545898,
+    "e2_preset": "fixed_lr5e-5_f10_h5_enc0.6_p15"
+  },
+  {
+    "dataset": "data_AAA",
+    "init": "scratch",
+    "seed": 372342494,
+    "e2_preset": ""
+  },
+  {
+    "dataset": "data_AAA",
+    "init": "pretrain",
+    "seed": 372342494,
+    "e2_preset": "fixed_lr5e-5_f10_h5_enc0.6_p15"
+  },
+  {
+    "dataset": "data_AAA",
+    "init": "scratch",
+    "seed": 1986112861,
+    "e2_preset": ""
+  },
+  {
+    "dataset": "data_AAA",
+    "init": "pretrain",
+    "seed": 1986112861,
+    "e2_preset": "fixed_lr5e-5_f10_h5_enc0.6_p15"
+  },
+  {
+    "dataset": "data_BBB",
+    "init": "scratch",
+    "seed": 559921342,
+    "e2_preset": ""
+  },
+  {
+    "dataset": "data_BBB",
+    "init": "pretrain",
+    "seed": 559921342,
+    "e2_preset": "fixed_lr5e-5_f10_h5_enc0.6_p15"
+  },
+  {
+    "dataset": "data_BBB",
+    "init": "scratch",
+    "seed": 1090206491,
+    "e2_preset": ""
+  },
+  {
+    "dataset": "data_BBB",
+    "init": "pretrain",
+    "seed": 1090206491,
+    "e2_preset": "fixed_lr5e-5_f10_h5_enc0.6_p15"
+  },
+  {
+    "dataset": "data_BBB",
+    "init": "scratch",
+    "seed": 530553441,
+    "e2_preset": ""
+  },
+  {
+    "dataset": "data_BBB",
+    "init": "pretrain",
+    "seed": 530553441,
+    "e2_preset": "fixed_lr5e-5_f10_h5_enc0.6_p15"
+  },
+  {
+    "dataset": "data_CCC",
+    "init": "scratch",
+    "seed": 21411372,
+    "e2_preset": ""
+  },
+  {
+    "dataset": "data_CCC",
+    "init": "pretrain",
+    "seed": 21411372,
+    "e2_preset": "fixed_lr5e-5_f10_h5_enc0.6_p15"
+  },
+  {
+    "dataset": "data_CCC",
+    "init": "scratch",
+    "seed": 1728911405,
+    "e2_preset": ""
+  },
+  {
+    "dataset": "data_CCC",
+    "init": "pretrain",
+    "seed": 1728911405,
+    "e2_preset": "fixed_lr5e-5_f10_h5_enc0.6_p15"
+  },
+  {
+    "dataset": "data_CCC",
+    "init": "scratch",
+    "seed": 1399532043,
+    "e2_preset": ""
+  },
+  {
+    "dataset": "data_CCC",
+    "init": "pretrain",
+    "seed": 1399532043,
+    "e2_preset": "fixed_lr5e-5_f10_h5_enc0.6_p15"
+  }
+]

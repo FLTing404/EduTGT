@@ -1,0 +1,36 @@
+{
+  "model": "jodie",
+  "data_name": "data_FFF",
+  "val_auc": 0.553074638023842,
+  "val_ap": 0.5183409486296081,
+  "test_auc": 0.44904276869129645,
+  "test_ap": 0.44719744067984685,
+  "test_acc": 0.5,
+  "nn_test_auc": 0.5502032165985589,
+  "nn_test_ap": 0.5071451639336755,
+  "nn_test_acc": 0.5,
+  "train_time_sec": 41.945621967315674,
+  "best_epoch": 1,
+  "hyperparams": {
+    "data_dir": "/home/fgao/Desktop/EduTGT/EduTGT/data/processed/data_FFF",
+    "epochs": 50,
+    "batch_size": 200,
+    "lr": 0.001,
+    "seed": 2,
+    "device": "cuda",
+    "out_dir": "/home/fgao/Desktop/EduTGT/EduTGT/outputs/result/_runs/data_FFF_s2/jodie",
+    "dim": 128
+  },
+  "stats": {
+    "num_edges": 3248703,
+    "num_train": 326108,
+    "num_val": 323695,
+    "num_test": 2598900,
+    "num_nn_val": 60901,
+    "num_nn_test": 2512114,
+    "val_time": 56.0,
+    "test_time": 168.0,
+    "ts_min": -18,
+    "ts_max": 3269
+  }
+}
