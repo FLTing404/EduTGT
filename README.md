@@ -2,7 +2,7 @@
 
 当前处于方向调整后的初期探索阶段，重点是教育数据集适配、知识追踪基线、超图模块消融，以及错误识别与阈值选择。现有实验用于筛选问题和候选方案，尚未形成定型方法。
 
-本分支 `research/kt-exploration-20261029` 从旧 EduTGT 历史继续，工作目录以当前新代码为主体。此前的 OULAD 时序图链路预测和课程通过预测保留在 [main 的固定版本](https://github.com/FLTing404/EduTGT/tree/dbeb7d42e656967c3eb3b0c4f69f9f64d73201d4)。两套任务、标签和数据接口不同；关系与目录说明见 [方向调整说明](docs/方向调整与目录说明.md)。
+本分支 `research/knowledge-tracing` 从旧 EduTGT 历史继续，工作目录以当前新代码为主体。此前的 OULAD 时序图链路预测和课程通过预测保留在 [main 的固定版本](https://github.com/FLTing404/EduTGT/tree/dbeb7d42e656967c3eb3b0c4f69f9f64d73201d4)。两套任务、标签和数据接口不同；关系与目录说明见 [方向调整说明](docs/方向调整与目录说明.md)。
 
 ## 从哪里开始
 
